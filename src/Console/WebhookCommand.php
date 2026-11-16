@@ -25,7 +25,9 @@ use Symfony\Component\Console\Attribute\AsCommand;
  * A new endpoint stays `pending_verification` until it answers Flashpi's challenge, which needs
  * the secret in the app's configuration: once it is there, `--verify` sends the challenge again.
  * Run again for a URL that is already registered, the command reports the endpoint's status and
- * creates nothing.
+ * creates nothing. It changes no existing endpoint either: --thin and --event apply when the
+ * endpoint is created, and when they ask for settings an existing endpoint lacks, the command
+ * fails without sending anything more.
  *
  * @phpstan-import-type CreateWebhookEndpoint from ApiTypes
  * @phpstan-import-type WebhookEndpoint from ApiTypes
@@ -55,8 +57,8 @@ final class WebhookCommand extends Command
     /** @var string */
     protected $signature = 'flashpi:webhook
         {--url= : The public HTTPS URL Flashpi sends the webhooks to (default: APP_URL plus the webhook route\'s path)}
-        {--event=* : An event type to receive, such as invoice.authorized (repeat it for several; default: every event)}
-        {--thin : Send thin payloads (the event\'s id, type and environment only)}
+        {--event=* : An event type the new endpoint receives, such as invoice.authorized (repeat it for several; default: every event)}
+        {--thin : The new endpoint sends thin payloads (the event\'s id, type and environment only)}
         {--verify : Send the verification challenge again to the endpoint already registered for the URL}';
 
     /** @var string */
@@ -215,7 +217,14 @@ final class WebhookCommand extends Command
      */
     private function existing(Flashpi $flashpi, array $endpoint, Repository $config): int
     {
-        $name = "{$endpoint['url']} ({$endpoint['id']}, {$endpoint['environment']} events)";
+        $name = "{$endpoint['url']} ({$endpoint['id']}, {$endpoint['environment']} events, {$endpoint['payloadMode']} payloads)";
+        $differences = $this->differences($endpoint);
+        if ($differences !== []) {
+            $this->components->error("{$name} is already registered with other settings: " . implode('; ', $differences) . '.');
+            $this->line("  The command changes no existing endpoint: change it in the Flashpi console, or with Flashpi::webhookEndpoints()->update('{$endpoint['id']}', [...]).");
+
+            return self::FAILURE;
+        }
         if ($endpoint['status'] === 'active') {
             $this->components->info("{$name} is registered and active.");
             if ($this->option('verify') === true) {
@@ -244,5 +253,34 @@ final class WebhookCommand extends Command
         $this->line('  Run php artisan flashpi:webhook in a few seconds to see whether the endpoint is active.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * How an existing endpoint differs from what --thin and --event ask for: only the options
+     * given count, and a run without --thin asks nothing of the payload mode (a flag cannot tell
+     * "full" from "not given").
+     *
+     * @param WebhookEndpoint $endpoint
+     *
+     * @return list<string>
+     */
+    private function differences(array $endpoint): array
+    {
+        $differences = [];
+        if ($this->option('thin') === true && $endpoint['payloadMode'] !== 'thin') {
+            $differences[] = "it sends {$endpoint['payloadMode']} payloads, not thin";
+        }
+        $option = $this->option('event');
+        $asked = \is_array($option) ? array_values(array_unique(array_filter($option, \is_string(...)))) : [];
+        if ($asked !== []) {
+            $enabled = $endpoint['enabledEvents'];
+            sort($asked);
+            sort($enabled);
+            if ($asked !== $enabled) {
+                $differences[] = 'it receives ' . implode(', ', $enabled) . ', not ' . implode(', ', $asked);
+            }
+        }
+
+        return $differences;
     }
 }

@@ -139,18 +139,25 @@ while implementing**: those wait for the owner's confirmation.
   issuer-scoped or read-only key reads its events), to test the key: a 401 or 403 is a refused
   key. A missing webhook secret is a warning, not a failure. The calls keep the client's retries.
 - **flashpi:webhook.** The URL is `--url`, or `APP_URL` plus `webhook.path` (an error when the
-  route is turned off, `APP_URL` is unset or the path is empty). It refuses, sending nothing, a
-  URL that is not https and one whose host cannot be public: an IP address outside RFC 6890's
-  global ranges, a name without a dot, and names under `localhost`, `test`, `example`, `invalid`,
-  `local`, `internal`, `home.arpa`, `lan`, `localdomain`, `corp`, `intranet` and `private`. There
-  is no option to override it and no DNS lookup. It then looks for an endpoint with exactly that
-  URL among the key's (every page): an active one is reported, a disabled one is a warning, and
-  one waiting for verification gets its challenge sent again with `--verify`. Otherwise it creates
-  the endpoint for every event (`*`, or the `--event` types, which the API checks so a new type
-  needs no new version) with full payloads (or `--thin`), reads its secret and prints
+  route is turned off, `APP_URL` is unset or the path is empty). It refuses, sending nothing, a URL
+  that is not https and one whose host cannot be public: an IP address outside RFC 6890's global
+  ranges, a name without a dot, and names under `localhost`, `test`, `example`, `invalid`, `local`,
+  `internal`, `home.arpa`, `lan`, `localdomain`, `corp`, `intranet` and `private`. There is no
+  option to override it and no DNS lookup. It then looks for an endpoint with exactly that URL
+  among the key's (every page): an active one is reported (with its payload mode), a disabled one
+  is a warning, and one waiting for verification gets its challenge sent again with `--verify`. The
+  command never updates an endpoint: `--event` and `--thin` apply when it creates one, and when the
+  existing endpoint's payload mode or events differ from those given (only the options given count:
+  `--thin` is a flag, so a run without it asks nothing of the payload mode, and the events are
+  compared as sets), the command prints the differences and fails without sending anything more,
+  `--verify` included, so a deploy script sees that the settings it asked for are not in place
+  (**chosen while implementing**; whether it should update the endpoint through
+  `webhookEndpoints->update()` instead, behind an option, is the owner's). Otherwise it creates the
+  endpoint for every event (`*`, or the `--event` types, which the API checks so a new type needs
+  no new version) with full payloads (or `--thin`), reads its secret and prints
   `FLASHPI_WEBHOOK_SECRET=whsec_...` once, with the next steps: Flashpi's first challenge fails
-  until the deployed app holds the secret, so `--verify` sends it again. The secret of an
-  endpoint that already exists is never printed.
+  until the deployed app holds the secret, so `--verify` sends it again. The secret of an endpoint
+  that already exists is never printed.
 - **Static analysis.** PHPStan at level max with flashpi-php's flags, over `config`, `scripts`,
   `src` and `tests`. No Larastan: the package uses little of Laravel's magic (the container's
   `make()` is typed by Laravel's own generics, `config()` values are checked at run time anyway,

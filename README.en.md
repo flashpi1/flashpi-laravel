@@ -236,7 +236,9 @@ Expose, Cloudflare Tunnel) and pass its URL:
 `php artisan flashpi:webhook --url=https://abc123.ngrok.app/flashpi/webhook`.
 
 Options: `--event=invoice.authorized` (repeatable) to receive those events only, and `--thin`
-for thin payloads.
+for thin payloads. `--event` and `--thin` apply only when the endpoint is created: if the URL is
+already registered with other settings, the command fails without changing it; change it with
+`Flashpi::webhookEndpoints()->update()` or in the Flashpi console.
 
 ### Events
 
@@ -323,8 +325,8 @@ Flashpi (`replay`) keep their `webhook-id`: within the 24 hours they are dropped
 
 ### Thin payloads
 
-An endpoint in `thin` mode (`php artisan flashpi:webhook --thin`) sends only the `id`, `type`,
-`environment` and date: `$event->data` is `null` and `$event->isThin()` is `true`.
+An endpoint in `thin` mode (registered with `php artisan flashpi:webhook --thin`) sends only the
+`id`, `type`, `environment` and date: `$event->data` is `null` and `$event->isThin()` is `true`.
 `$event->fetch()` asks the API for the whole event (`GET /v1/events/{id}`), once per event and
 only when you call it; with a full payload it returns the payload without any request, so your
 listeners work the same in both modes. It needs a `FLASHPI_API_KEY` of the event's environment.

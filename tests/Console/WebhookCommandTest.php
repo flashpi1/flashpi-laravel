@@ -132,7 +132,7 @@ final class WebhookCommandTest extends TestCase
         Http::fake([Api::url('/v1/webhook-endpoints') => Api::page([Api::endpoint(url: 'https://8.8.8.8/flashpi/webhook', status: 'active')])]);
 
         $this->command('flashpi:webhook', ['--url' => 'https://8.8.8.8/flashpi/webhook'])
-            ->expectsOutputToContain('https://8.8.8.8/flashpi/webhook (we_019a1b2c, test events) is registered and active.')
+            ->expectsOutputToContain('https://8.8.8.8/flashpi/webhook (we_019a1b2c, test events, full payloads) is registered and active.')
             ->assertSuccessful();
     }
 
@@ -172,13 +172,90 @@ final class WebhookCommandTest extends TestCase
         ]);
 
         $this->command('flashpi:webhook', ['--verify' => true])
-            ->expectsOutputToContain(self::URL . ' (we_019a1b2c, test events) is registered and active.')
+            ->expectsOutputToContain(self::URL . ' (we_019a1b2c, test events, full payloads) is registered and active.')
             ->expectsOutputToContain('It needs no verification.')
             ->doesntExpectOutputToContain('FLASHPI_WEBHOOK_SECRET=')
             ->assertSuccessful();
 
         Http::assertSentCount(2);
         Http::assertNotSent(fn(Request $request): bool => $request->method() === 'POST');
+    }
+
+    /**
+     * @return iterable<string, array{array{enabledEvents?: list<string>, payloadMode?: string, status?: string}, array<string, mixed>, string}>
+     */
+    public static function otherSettings(): iterable
+    {
+        yield 'thin for full payloads' => [[], ['--thin' => true], 'it sends full payloads, not thin'];
+        yield 'events for every event' => [[], ['--event' => ['invoice.authorized']], 'it receives *, not invoice.authorized'];
+        yield 'other events' => [
+            ['enabledEvents' => ['invoice.authorized'], 'payloadMode' => 'thin'],
+            ['--event' => ['invoice.authorized', 'invoice.rejected'], '--thin' => true],
+            'it receives invoice.authorized, not invoice.authorized, invoice.rejected',
+        ];
+        yield 'both' => [
+            [],
+            ['--event' => ['invoice.authorized'], '--thin' => true],
+            'it sends full payloads, not thin; it receives *, not invoice.authorized',
+        ];
+        yield 'a pending endpoint, with --verify' => [['status' => 'pending_verification'], ['--thin' => true, '--verify' => true], 'it sends full payloads, not thin'];
+    }
+
+    /**
+     * The command changes no existing endpoint: options that ask for other settings fail it, so
+     * a deploy script sees that they are not in place.
+     *
+     * @param array{enabledEvents?: list<string>, payloadMode?: string, status?: string} $changes
+     * @param array<string, mixed> $options
+     */
+    #[DataProvider('otherSettings')]
+    public function testFailsWhenAnExistingEndpointHasOtherSettings(array $changes, array $options, string $differences): void
+    {
+        $this->config()->set('flashpi.webhook.secret', self::fakeSecret());
+        $mode = $changes['payloadMode'] ?? 'full';
+        Http::fake([Api::url('/v1/webhook-endpoints') => Api::page([[...Api::endpoint(status: 'active'), ...$changes]])]);
+
+        $this->command('flashpi:webhook', $options)
+            ->expectsOutputToContain(self::URL . " (we_019a1b2c, test events, {$mode} payloads) is already registered with other settings: {$differences}.")
+            ->expectsOutputToContain("The command changes no existing endpoint: change it in the Flashpi console, or with Flashpi::webhookEndpoints()->update('we_019a1b2c', [...]).")
+            ->doesntExpectOutputToContain('is registered and')
+            ->assertFailed();
+
+        // The list only: nothing created, updated or verified.
+        Http::assertSentCount(1);
+    }
+
+    /**
+     * @return iterable<string, array{array{enabledEvents?: list<string>, payloadMode?: string}, array<string, mixed>}>
+     */
+    public static function sameSettings(): iterable
+    {
+        yield 'no options' => [[], []];
+        yield 'every event' => [[], ['--event' => ['*']]];
+        yield 'thin for thin payloads' => [['payloadMode' => 'thin'], ['--thin' => true]];
+        yield 'the same events in another order, repeated' => [
+            ['enabledEvents' => ['invoice.rejected', 'invoice.authorized'], 'payloadMode' => 'thin'],
+            ['--event' => ['invoice.authorized', 'invoice.rejected', 'invoice.authorized'], '--thin' => true],
+        ];
+        // --thin is a flag: without it, nothing is asked of the payload mode.
+        yield 'no --thin for thin payloads' => [['payloadMode' => 'thin'], ['--event' => ['*']]];
+    }
+
+    /**
+     * @param array{enabledEvents?: list<string>, payloadMode?: string} $changes
+     * @param array<string, mixed> $options
+     */
+    #[DataProvider('sameSettings')]
+    public function testReportsAnExistingEndpointWithTheSameSettings(array $changes, array $options): void
+    {
+        $mode = $changes['payloadMode'] ?? 'full';
+        Http::fake([Api::url('/v1/webhook-endpoints') => Api::page([[...Api::endpoint(status: 'active'), ...$changes]])]);
+
+        $this->command('flashpi:webhook', $options)
+            ->expectsOutputToContain(self::URL . " (we_019a1b2c, test events, {$mode} payloads) is registered and active.")
+            ->assertSuccessful();
+
+        Http::assertSentCount(1);
     }
 
     public function testReportsADisabledEndpoint(): void
