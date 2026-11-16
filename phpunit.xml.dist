@@ -53,6 +53,7 @@
       <directory>scripts</directory>
     </include>
     <exclude>
+      <file>scripts/installed_check.php</file>
       <file>scripts/package_check.php</file>
       <file>scripts/readme.php</file>
     </exclude>
