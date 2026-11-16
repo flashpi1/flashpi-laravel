@@ -162,7 +162,9 @@ final class IssueInvoice implements ShouldQueue
 Todos siguen el ejemplo de la factura y devuelven el documento. Por defecto la respuesta llega
 enseguida con el estado `processing` y el resultado del SRI llega por webhook. Con
 `'options' => ['waitForAuthorization' => true]` la API espera la respuesta del SRI (15 s por
-defecto, hasta 30 s con `waitTimeoutSeconds`) y devuelve `authorized`, `rejected` o `failed`.
+defecto, hasta 30 s con `waitTimeoutSeconds`) y devuelve `authorized`, `rejected` o `failed`;
+si el SRI tarda más, devuelve `processing` o `pending_sri`, el documento sigue su curso y el
+resultado llega por webhook.
 
 Cada método acepta, como último argumento, las opciones de esa petición: `idempotencyKey`,
 `timeout`, `maxRetries`, `language`, `correlationId` y `extraHeaders`. El resto de la API
