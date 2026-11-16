@@ -220,13 +220,14 @@ while implementing**: those wait for the owner's confirmation.
   other than letters, digits, `.`, `_`, `:` and `-`, which some stores refuse; a known key lets an
   app forget a delivery to have it handled again. The key goes through two states with different
   lifetimes: `Cache::add($key, 'processing', min(300, $ttl))` before dispatching (atomic in the
-  stores servers share: database, redis, memcached, dynamodb; the file store's add() is not), then
-  `put($key, 'processed', $ttl)` once the events went out. A repeat of a processed delivery is
-  answered 204 without dispatching; a repeat of one still being handled is answered 409, so that
-  Flashpi tries it again later instead of taking a 204 for a delivery whose first attempt may still
-  fail (Flashpi waits 10 seconds for an answer and retries 5 seconds later, so a slow synchronous
-  listener meets its own retry). When a listener throws, the key is forgotten and the error is
-  thrown again, so Laravel's exception handler reports it and renders it (a 500, or an
+  stores with an add() of their own: the file store's takes an exclusive file lock, but its files
+  are local, so with several servers it must be a store they share: database, redis, memcached,
+  dynamodb), then `put($key, 'processed', $ttl)` once the events went out. A repeat of a processed
+  delivery is answered 204 without dispatching; a repeat of one still being handled is answered
+  409, so that Flashpi tries it again later instead of taking a 204 for a delivery whose first
+  attempt may still fail (Flashpi waits 10 seconds for an answer and retries 5 seconds later, so a
+  slow synchronous listener meets its own retry). When a listener throws, the key is forgotten and
+  the error is thrown again, so Laravel's exception handler reports it and renders it (a 500, or an
   `HttpException`'s status) and Flashpi's retry dispatches the delivery again. When forgetting the
   key fails too, that error is reported and the listener's error is still the one thrown; the
   delivery stays `processing` until its lease ends (below), and Flashpi's next retry handles it.
