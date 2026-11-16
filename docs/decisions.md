@@ -171,3 +171,104 @@ while implementing**: those wait for the owner's confirmation.
   `composer.json` that requires PHP, `flashpi/flashpi-php` `^0.1` and `illuminate/*` components
   for Laravel 12 and 13 only, autoloads `Flashpi\Laravel\` from `src/` and registers the service
   provider for package discovery.
+
+### The webhooks, chosen while implementing
+
+- **Requirements.** The webhooks add `illuminate/routing` (the route) and `illuminate/container`
+  (the container a queued event reaches its client through), at the same `^12.71 || ^13.40`.
+  The events, the cache and the exception handler are used through `illuminate/contracts` only.
+- **The route.** The service provider registers `POST {webhook.path}` named `flashpi.webhook`,
+  with `WebhookController` (an invokable class, so `php artisan route:cache` caches it) and the
+  `webhook.middleware` (a name or a list; none by default), in `boot()` and outside any group: no
+  `web` group, so no session and no CSRF check, which the signature makes unnecessary. Laravel's
+  global middleware still runs (maintenance mode answers 503, which Flashpi retries). It is
+  registered in code, not from a routes file, so the archive stays `src/` and `config/`; like
+  `loadRoutesFrom()`, nothing is added when the routes are cached, since the cache holds the route
+  as it was (a change to the path or the switch needs `route:cache` again). It is registered
+  whether or not an API key is set: receiving needs only the secret. `webhook.enabled` is on
+  unless it is false, 0, `off` or `no` (any letter case; an unset or empty value keeps it on),
+  so a bad value never stops the app from booting. The path is trimmed to one leading slash and
+  none at the end; unset or empty is `/flashpi/webhook`, and only slashes registers no route (and
+  `flashpi:webhook` refuses it, as before). `flashpi:webhook` reads the same settings through
+  `Internal\WebhookSettings`. Laravel merges config/flashpi.php one level deep, so an app's file
+  without a nested key gets the package's default from that class, never null.
+- **Verification.** The controller passes `$request->getContent()` (the raw body) and
+  `$request->headers` to `Flashpi::unwrapWebhook()` with `webhook.secret`, with the SDK's
+  5-minute tolerance (not a setting). Every `WebhookVerificationException` is a 400 with an empty
+  body, and so is a signed body that is not a Flashpi event: no string `id`, `type` or
+  `createdAt`, an `environment` other than `test` or `live`, or a `data` that is not an object.
+  The one exception is the SDK's `invalid_secret`, which depends on the configuration only: a
+  missing or malformed secret throws a `FlashpiException` that names `FLASHPI_WEBHOOK_SECRET`,
+  never the value, so Laravel reports it and answers 500. A 400 would hide the app's
+  misconfiguration among forged requests; with a 500 the app's error tracker shows it, and
+  Flashpi retries the delivery (for 72 hours) until the secret is deployed.
+- **The challenge.** `webhook_endpoint.verification` is answered before anything else is done
+  with the delivery: 200 with `{"challenge": "..."}`, every time it comes (`flashpi:webhook
+  --verify` sends a new one), never remembered in the cache and with no event dispatched, not even
+  `WebhookReceived` (the owner's decision dispatches events for every other type). One without a
+  string `challenge` is a 400.
+- **Deduplication.** The cache key is `flashpi:webhook:` and the `webhook-id` header (Flashpi
+  sends the event's id, a UUID), or the SHA-256 of an id longer than 128 characters or with
+  characters other than letters, digits, `.`, `_`, `:` and `-`, which some stores refuse; a known
+  key lets an app forget a delivery to have it handled again. The key goes through two states:
+  `Cache::add($key, 'processing', $ttl)` before dispatching (atomic in the stores servers share:
+  database, redis, memcached, dynamodb; the file store's add() is not), then `put($key,
+  'processed', $ttl)` once the events went out. A repeat of a processed delivery is answered 204
+  without dispatching; a repeat of one still being handled is answered 409, so that Flashpi tries
+  it again later instead of taking a 204 for a delivery whose first attempt may still fail
+  (Flashpi waits 10 seconds for an answer and retries 5 seconds later, so a slow synchronous
+  listener meets its own retry). When a listener throws, the key is forgotten and the error is
+  thrown again, so Laravel's exception handler reports it and renders it (a 500, or an
+  `HttpException`'s status) and Flashpi's retry dispatches the delivery again. When the cache
+  fails before the events go out, the error is a 500 and nothing is dispatched; when it fails
+  writing `processed`, the events went out, so the error is reported and the answer is still 204.
+  A PHP fatal error (memory, time limit) while dispatching leaves `processing`: Flashpi's retries
+  get 409 until the TTL ends, then the delivery is handled again, within Flashpi's 72-hour retry
+  window. The TTL is `webhook.deduplication.ttl`, a whole number of seconds of 1 or more (0 would
+  make `Cache::add()` refuse every delivery), 86400 when unset; anything else throws a
+  `FlashpiException`. Flashpi's replay of a delivery (`webhookEndpoints->deliveries->replay()`)
+  keeps its `webhook-id`, so within the TTL it is answered 204 and dispatches nothing: replays
+  cannot be told from retries.
+- **The order of the events.** `WebhookReceived` is dispatched first, then the event of the type,
+  as Cashier dispatches its `WebhookReceived` before handling: a listener that records every
+  delivery runs before the ones that act on it. A listener that throws stops the ones after it,
+  and the retry dispatches both events again, so listeners must be idempotent: delivery is at
+  least once.
+- **The event classes.** `Flashpi\Laravel\Events`: the abstract `WebhookEvent<TData>` (a covariant
+  template, so `InvoiceAuthorized` is a `WebhookEvent<array<mixed>>`), the abstract
+  `DocumentWebhookEvent` (`data` is the SDK's `Document`), `CertificateWebhookEvent`
+  (`Certificate`) and `AccountWebhookEvent` (`AccountEmailSending`), one final class per type
+  with its `TYPE` constant, and the final `WebhookReceived`, whose `data` is
+  `array<string, mixed>`. `WebhookEvents::CLASSES` maps each type to its class
+  (`classFor()`). The class name is the type in StudlyCase, split at `.` and `_`
+  (`account.email_paused` is `AccountEmailPaused`). A test reads the SDK's `DocumentEventType`,
+  `CertificateEventType` and `AccountEventType` (and `EventThinType`) from `ApiTypes`' PHPDoc and
+  fails when a type has no class, or a class no type, or a class sits under the wrong base.
+- **What an event holds.** Read-only `id`, `type`, `environment` (`test` or `live`), `createdAt`
+  (the API's ISO 8601 string, as the SDK keeps dates), `data` (null in a thin payload),
+  `payload` (the whole body, with any field this version does not know) and `webhookId` (the
+  header; the event's id by default). An event is built from a webhook body,
+  `new InvoiceAuthorized($payload)`, so an app's tests build them as the route does; a body that
+  is not an event of the class's type throws an `\InvalidArgumentException`. The classes hold
+  strings and arrays only, so they need neither `SerializesModels` nor any `__serialize()`: the
+  sync queue (which serializes its jobs too) and the database queue with a worker are tested.
+  They use no `Dispatchable` trait, which lives in `laravel/framework`'s foundation, a package the
+  package does not require: `Event::dispatch()` and `event()` dispatch them.
+- **Thin payloads.** `isThin()` is true when the body has no `data`. `fetch()` returns the whole
+  event: the payload itself, without a request, when it carries `data`; otherwise
+  `$flashpi->events->get($id)` with the client of the container at that moment
+  (`Container::getInstance()`, so it works in a queue worker), read once per event object and
+  kept through serialization. It throws a `FlashpiException` before sending anything when the
+  key's environment is not the event's (an `fp_live_` key cannot read a test event), and when the
+  API answers with another event or one without `data`; the API's errors pass through. It
+  returns the API's object as it came, unknown fields included, typed with the class's `TData`.
+- **Tests.** Deliveries are signed as Flashpi signs them (HMAC-SHA256 of
+  `webhook-id.webhook-timestamp.body` with the base64 key of the `whsec_` secret), checked against
+  the example of Flashpi's docs that flashpi-php verifies, with a fresh timestamp: the SDK reads
+  the system clock, not Laravel's. They cover a valid delivery, a tampered body, timestamps 301
+  seconds old or ahead, another secret, each missing header, bodies that are not events, a
+  missing or malformed secret, the challenge, a repeated delivery and Flashpi's re-signed retry,
+  a listener that throws then the retry, a delivery still being handled, the TTL with Laravel's
+  clock, another cache store, an unknown type, a secret rotation, a thin payload fetched through
+  `Http::fake()`, the route's settings and `route:cache` (the compiled routes, exported and loaded
+  back as Laravel loads its cache).
