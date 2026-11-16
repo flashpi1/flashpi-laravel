@@ -272,3 +272,104 @@ while implementing**: those wait for the owner's confirmation.
   clock, another cache store, an unknown type, a secret rotation, a thin payload fetched through
   `Http::fake()`, the route's settings and `route:cache` (the compiled routes, exported and loaded
   back as Laravel loads its cache).
+
+### The repository, chosen while implementing
+
+- **The READMEs.** `README.md` in Spanish and `README.en.md` in English, with the same sections
+  and the same examples in the same order, in flashpi-php's style: what the package is, the
+  requirements, install and `flashpi:install`, the configuration and its variables, the client
+  (the facade first, then injection in a queued job), issuing (every document type follows the
+  invoice), documents, the webhooks (the route, `flashpi:webhook`, the events and their classes,
+  queued listeners, repeated deliveries, thin payloads, a route of one's own), testing with
+  `Http::fake()`, the commands, the errors, security, and links to the SDKs' docs and to the
+  SDK's README for everything the package does not change (types, retries, pagination, issuers).
+  Every link is absolute, or an anchor, since Packagist shows the README and cannot follow a
+  relative link (`composer package:check` refuses one in `README.md`).
+- **What the examples show.** They read the configuration through `config()` and use the
+  container's client, never `env()` or `new Flashpi()`, since a cached configuration does not see
+  .env (`tests/Scripts/ReadmeTest.php` checks it). The reader's own code is an Eloquent
+  `App\Models\Order` with a `toFlashpiInvoice()` method, the way a Laravel app holds its data,
+  rather than global functions: PHPStan can type a method's return with the SDK's
+  `CreateInvoice`, and cannot type a function's (`@phpstan-import-type` works in a class's
+  PHPDoc only). The job uses the order's id as the `idempotencyKey`, so a retried job never
+  issues twice. The testing section tells apps to set a fake `fp_test_` key and
+  `FLASHPI_MAX_RETRIES=0` in `phpunit.xml`, since the SDK waits between retries of a faked 5xx.
+- **The README examples are checked and run.** `scripts/readme.php` and `scripts/Readme/` are
+  flashpi-php's, ported: every `php` block becomes a file of `tests/Examples/Readme/`
+  (`composer readme:generate`; `composer readme:check` and a test fail when they differ), excluded
+  from the repository's PHPStan configuration and marked `linguist-generated`.
+  `tests/Examples/ExamplesTest.php` lints each one with `php -l`, analyses them with a consumer's
+  PHPStan configuration (`tests/Examples/phpstan.neon`: level max and bleeding edge only, as the
+  SDK's), and runs every one in a Testbench app with the API faked by a callback of
+  `Http::fake()` under `Http::preventStrayRequests()`, the default disk faked, the null log
+  channel, the sync queue and the orders in SQLite in memory:
+  - top-level code runs as it is (its output discarded);
+  - a class whose `handle()` takes a webhook event is registered as its listener and gets the
+    event through Laravel's dispatcher twice, with a full payload and with a thin one (whose
+    `fetch()` the fake API answers), so a queued listener goes through the sync queue and its
+    serialization;
+  - a job (`ShouldQueue`) goes through the bus's `dispatchSync()`, which serializes it, with its
+    order;
+  - a test class runs with PHPUnit in a process of its own, on a stand-in for the app's
+    `Tests\TestCase` (`tests/Examples/App/TestCase.php`, a Testbench test case with the package
+    and a fake key), from a copy of the file named after the class, since PHPUnit loads a test
+    file by its class's name. No `--do-not-cache-result`: PHPUnit 13 deprecates it, and without a
+    configuration file PHPUnit writes no cache.
+  A request the fake API does not know (a 404 problem), a class with neither `handle()` nor
+  `__invoke()`, a listener that leaves no trace (a request or a query) for either payload, and
+  an example that does nothing the test can see fail the run. The owner asked to run what can
+  run under Testbench; every example can.
+- **The live test.** `tests/Live/LiveTest.php` (group `live`, `composer test:live`), as
+  flashpi-php's: skipped without `FLASHPI_TEST_API_KEY` and `FLASHPI_DEMO_ISSUER_ID`, and it
+  refuses a key that is not `fp_test_`. In a Testbench app with the key in its configuration
+  (`FLASHPI_BASE_URL` may point to another API), it runs `php artisan flashpi:check`, issues ONE
+  test invoice through the facade on the demo issuer, follows it until the SRI authorizes it, and
+  reads its `invoice.authorized` event with `fetch()` from a thin `InvoiceAuthorized`, so the
+  thin path is checked against the real API too. The SDK's live test already covers the API's
+  other answers; this one covers what the package adds. `live.yml` mirrors flashpi-php's (PHP
+  8.5, the newest dependencies, the organization secret and variable checked first).
+- **CI.** `ci.yml` follows flashpi-php's, with the actions pinned to the same commit SHAs
+  (checkout v7.0.1, setup-php 2.40.0):
+  - `verify` (PHP 8.5, Laravel 13): `composer validate --strict`, `composer readme:check`,
+    PHP-CS-Fixer, PHPStan, and the tests with pcov, failing below 95 % of lines.
+  - `laravel`: PHP 8.2 to 8.5 with Laravel 12 and 13, without PHP 8.2 with Laravel 13 (seven
+    jobs), each with PHPStan and the tests. PHPStan runs in every job because Laravel's types
+    differ between majors (the one ignored report in `phpstan.neon.dist` is one of them).
+  - `lowest`: the oldest versions `composer.json` allows with each Laravel major, on its lowest
+    PHP and on PHP 8.5 (Laravel 12 on 8.2 and 8.5, Laravel 13 on 8.3 and 8.5), PHPStan over
+    `config`, `scripts` and `src` only (random_compat, above), and the tests.
+  - `package` (Laravel 12 on PHP 8.2, Laravel 13 on 8.5): `scripts/package_check.php` on `git
+    archive HEAD`, then the archive installed from a path repository in a new app
+    (`composer create-project laravel/laravel`), `php artisan flashpi:install`,
+    `scripts/installed_check.php` (the package loads from the app's vendor directory with nothing
+    but the package, package discovery registers it, the facade's client sends through
+    `Http::fake()`, and the route answers a signed challenge and dispatches a signed event), then
+    `config:cache` and `route:cache` with the route still listed. It is flashpi-php's install
+    check, with a real Laravel app in place of a bare project.
+  The Laravel major is chosen through Testbench (`--with "orchestra/testbench:^10.0"` for 12,
+  `^11.0` for 13), whose majors follow Laravel's: `laravel/framework` is not a requirement of the
+  package, only of Testbench.
+- **Releases.** release-please with flashpi-php's configuration (`release-type: php`, 0.1.0
+  first, minor bumps before 1.0, no component in the tag, the same changelog sections), and
+  `.release-please-manifest.json` at `0.0.0`, as flashpi-php's was before its first release.
+  `release.yml` is flashpi-php's: the flashpi-bot GitHub App's token (organization variable
+  `FLASHPI_BOT_CLIENT_ID`, secret `FLASHPI_BOT_PRIVATE_KEY`) opens the release PR, and the live
+  test is dispatched on its branch. No publish job, since Packagist reads the tags. No Version
+  file: the package sends no version of its own (the requests carry the SDK's User-Agent), so
+  release-please updates `CHANGELOG.md` and the manifest only, and `composer.json` carries no
+  version.
+- **Dependabot.** Weekly and grouped, as flashpi-php's: the GitHub Actions in one group (`ci:`),
+  the Composer production and development dependencies in one group each (`chore:`). Majors of
+  `illuminate/*` and `orchestra/testbench` are ignored: another Laravel major is the owner's
+  decision, and Testbench's majors follow Laravel's. `flashpi/flashpi-php` is not ignored, but
+  `composer package:check` requires `^0.1`, so a new SDK minor is adopted on purpose (its new
+  resources need the facade's tags, its new webhook types their event classes).
+- **The archive.** `.gitattributes` keeps `.github`, `docs`, `scripts`, `tests`, the tool
+  configuration, the release-please files, `CONTRIBUTING.md` and `SECURITY.md` out of the
+  archive; `composer package:check` and the CI's `package` job prove that the archive holds
+  `src/`, `config/`, `composer.json`, the license and the READMEs (and, once released, the
+  changelog) only.
+- **CONTRIBUTING.md and SECURITY.md.** flashpi-php's, adapted: the Laravel versions CI tests and
+  how to install them, the README examples, the install check, and, for security, the key in
+  .env, the `Authorization` header in tools that record outgoing requests, the webhook route's
+  signature check and a shared cache store for several servers.
