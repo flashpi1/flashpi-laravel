@@ -51,7 +51,8 @@ composer validate --strict && composer cs && composer analyse && composer test
   7; add `--with "guzzlehttp/guzzle:^8.3"` to the second for Laravel 13 with Guzzle 8.3.0, which
   `--prefer-lowest` never picks on its own. Run `composer update` to go back to the newest. With
   the lowest versions, PHPStan checks `config`, `scripts` and `src` only: the lowest
-  `symfony/polyfill-uuid` installs `random_compat`, whose `random_bytes()` has no return type.
+  `symfony/polyfill-uuid` installs `random_compat`, whose `random_bytes()` has no return type, and
+  the lowest Mockery (1.6.10) types `shouldReceive()` too loosely for the tests.
 - `composer package:check` checks what Composer would install from a tag: the archive of `HEAD`
   (so commit first), which `.gitattributes` keeps to `src/`, `config/`, `composer.json`, the
   license and the READMEs. CI then installs that archive in new Laravel 12 and 13 apps

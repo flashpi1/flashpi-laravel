@@ -146,7 +146,9 @@ jobs:
           composer update --prefer-lowest --prefer-stable --no-interaction --no-progress --with "orchestra/testbench:${TESTBENCH}" --with "guzzlehttp/guzzle:${GUZZLE}"
           composer show | grep -E '^(laravel/framework|orchestra/testbench|flashpi/flashpi-php|guzzlehttp/(guzzle|psr7|promises)|phpunit/phpunit) '
       # The lowest symfony/polyfill-uuid installs paragonie/random_compat, whose random_bytes()
-      # has no return type, which the tests call: PHPStan checks the package and the scripts here.
+      # has no return type, which the tests call, and the lowest Mockery (1.6.10, from Laravel and
+      # Testbench) types shouldReceive() too loosely for tests/ServiceProviderTest.php (fixed in
+      # 1.6.13): PHPStan checks the package and the scripts here.
       - name: Analyse the package (PHPStan, level max)
         run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G config scripts src
       - run: vendor/bin/phpunit

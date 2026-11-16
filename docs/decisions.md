@@ -175,12 +175,14 @@ while implementing**: those wait for the owner's confirmation.
 - **Static analysis.** PHPStan at level max with flashpi-php's flags, over `config`, `scripts`,
   `src` and `tests`. No Larastan: the package uses little of Laravel's magic (the container's
   `make()` is typed by Laravel's own generics, `config()` values are checked at run time anyway,
-  and the facade's `@method` tags need nothing more), and Larastan requires matching
-  `illuminate/*` versions, so a new Laravel major would wait for it. The one report that depends
-  on the Laravel major (the container declares `BindingResolutionException` in 12 and nothing in
-  13) is ignored in `phpstan.neon.dist`. With the lowest dependencies, `symfony/polyfill-uuid`
-  1.15 installs `paragonie/random_compat`, whose `random_bytes()` has no return type, so PHPStan
-  checks `config`, `scripts` and `src` only there.
+  and the facade's `@method` tags need nothing more), and Larastan requires matching `illuminate/*`
+  versions, so a new Laravel major would wait for it. The one report that depends on the Laravel
+  major (the container declares `BindingResolutionException` in 12 and nothing in 13) is ignored in
+  `phpstan.neon.dist`. With the lowest dependencies, `symfony/polyfill-uuid` 1.15 installs
+  `paragonie/random_compat`, whose `random_bytes()` has no return type, and Mockery 1.6.10, the
+  lowest Laravel and Testbench allow, types `shouldReceive()` as
+  `Expectation|ExpectationInterface|HigherOrderMessage` (1.6.13 narrows it), which fails
+  `tests/ServiceProviderTest.php`, so PHPStan checks `config`, `scripts` and `src` only there.
 - **Tests.** Testbench with the provider registered as package discovery would, a fake `fp_test_`
   key per test and fake `whsec_` secrets. The API is faked with `Http::fake()`; Guzzle's
   `MockHandler` stands in for curl where Guzzle's own middleware must run (redirects, answers cut
@@ -407,7 +409,7 @@ while implementing**: those wait for the owner's confirmation.
     package uses Guzzle's classes itself (`Client`, `Utils::chooseHandler()`, `TransferStats`,
     `Promise\Create`), and left alone `--prefer-lowest` always picks Guzzle 7, which is why
     flashpi-php's lowest job pins each major too. PHPStan runs over `config`, `scripts` and `src`
-    only (random_compat, above), then the tests.
+    only (random_compat and Mockery 1.6.10, above), then the tests.
   - `package` (Laravel 12 on PHP 8.2, Laravel 13 on 8.5): `scripts/package_check.php` on `git
     archive HEAD`, then the archive installed from a path repository in a new app
     (`composer create-project laravel/laravel`), `php artisan flashpi:install`,
