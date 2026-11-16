@@ -76,28 +76,37 @@ while implementing**: those wait for the owner's confirmation.
   request through the handler stack of a new pending request of the HTTP client factory the
   container holds at that moment (`createPendingRequest()->buildHandlerStack()`), not one
   `buildClient()` taken when the singleton is built: a pending request copies its factory's fakes
-  when it is created, so a client resolved before `Http::fake()` (by the app while booting, or
-  early in a test) would send its requests for real. The client keeps one Guzzle handler (curl when
+  when it is created, so a client resolved before `Http::fake()` (by the app while booting, or early
+  in a test) would send its requests for real. The client keeps one Guzzle handler (curl when
   available) for all its requests, so connections are reused, which `buildClient()` would not do
   either; nor does it keep cookies between calls (`buildClient()`'s client does). `Http::fake()`,
   `Http::assertSent()`, `Http::preventStrayRequests()`, `Http::record()`, the global middleware
   (`Http::globalRequestMiddleware()` and the others) and the `RequestSending` event apply. What
-  belongs to `PendingRequest::send()` does not: `Http::globalOptions()`, Laravel's own 30 s timeout
-  and TLS 1.2 floor, and the `ResponseReceived` and `ConnectionFailed` events. A stray request
-  under `Http::preventStrayRequests()` throws a `FlashpiException` (`... was not sent:
-  Illuminate\Http\Client\StrayRequestException: ...`), not retried, since the SDK never lets an
-  exception of its HTTP client through. Laravel 12 reads the `laravel_data` and `on_stats` options
-  without a default, which only `PendingRequest::send()` sets, so the handler sets them (no form
-  data, and a statistics callback that does nothing). It leaves `laravel_data` empty for multipart
-  requests too, so Laravel's `hasFile()`, `data()` and array access see none of the parts of a
-  certificate upload: the SDK builds the `MultipartStream` itself and hides its parts
-  (`SensitiveParameterValue`), and filling `laravel_data` would mean parsing every multipart body
-  and copying the certificate's password into the request's data, only for test helpers. Tests
-  assert on `isMultipart()`, the URL and `body()` instead, as the READMEs say.
+  `PendingRequest::send()` does once the stack is done, the handler does too: it dispatches
+  `ResponseReceived` for every answer, and for a request that failed in the transport it records the
+  failure (`Http::assertSent()` and `Http::recorded()` see it with a `null` response, or with the
+  answer a Guzzle exception carries) and dispatches `ConnectionFailed` when no answer came, once per
+  attempt, so the SDK's retries show. Telescope's HTTP client watcher listens to those two events
+  only, Sentry's spans and breadcrumbs and other APM tools close on them what they open on
+  `RequestSending`, and an app's test of `Http::failedConnection()` asserts on the recorded
+  requests: without them the SDK's calls would be missing there, or left open. The SDK sees the same
+  rejection, so its retries do not change, and a listener that reads the body leaves a stream the
+  SDK rewinds before reading it (`stream` is false), so downloads stay whole. What belongs to
+  `send()`'s own pending request does not apply: `Http::globalOptions()`, Laravel's own 30 s timeout
+  and TLS 1.2 floor. A stray request under `Http::preventStrayRequests()` throws a
+  `FlashpiException` (`... was not sent: Illuminate\Http\Client\StrayRequestException: ...`), not
+  retried, since the SDK never lets an exception of its HTTP client through. Laravel 12 reads the
+  `laravel_data` and `on_stats` options without a default, which only `PendingRequest::send()` sets,
+  so the handler sets them (no form data, and a statistics callback that does nothing). It leaves
+  `laravel_data` empty for multipart requests too, so Laravel's `hasFile()`, `data()` and array
+  access see none of the parts of a certificate upload: the SDK builds the `MultipartStream` itself
+  and hides its parts (`SensitiveParameterValue`), and filling `laravel_data` would mean parsing
+  every multipart body and copying the certificate's password into the request's data, only for test
+  helpers. Tests assert on `isMultipart()`, the URL and `body()` instead, as the READMEs say.
 - **What the HTTP client's listeners see.** Every request the SDK sends now passes through
-  Laravel's HTTP client, so a listener of `RequestSending` (Telescope, Pulse, Nightwatch, a log)
-  gets it with its `Authorization` header, which holds the API key, as for any request an app
-  sends through `Http`. Tools that record requests must hide that header.
+  Laravel's HTTP client, so the HTTP client's events and global middleware (Telescope, Pulse,
+  Nightwatch, a log) get it with its `Authorization` header, which holds the API key, as for any
+  request an app sends through `Http`. Tools that record requests must hide that header.
 - **The configuration.** `api_key`, `language`, `base_url`, `timeout` and `max_retries` from
   `FLASHPI_API_KEY`, `FLASHPI_LANGUAGE`, `FLASHPI_BASE_URL`, `FLASHPI_TIMEOUT` and
   `FLASHPI_MAX_RETRIES`; and, for the webhooks, `webhook.enabled` (`FLASHPI_WEBHOOK_ENABLED`,
