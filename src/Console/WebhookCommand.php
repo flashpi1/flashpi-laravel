@@ -7,6 +7,7 @@ namespace Flashpi\Laravel\Console;
 use Flashpi\Exception\FlashpiException;
 use Flashpi\Flashpi;
 use Flashpi\Laravel\Internal\ClientBuilder;
+use Flashpi\Laravel\Internal\WebhookSettings;
 use Flashpi\Types\ApiTypes;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Config\Repository;
@@ -136,25 +137,25 @@ final class WebhookCommand extends Command
         if (\is_string($option) && trim($option) !== '') {
             return trim($option);
         }
-        if ($config->get('flashpi.webhook.enabled') === false) {
+        if (!WebhookSettings::enabled($config)) {
             $this->components->error('The package\'s webhook route is turned off (FLASHPI_WEBHOOK_ENABLED): pass the URL of your own route with --url.');
 
             return null;
         }
         $appUrl = $config->get('app.url');
-        $path = $config->get('flashpi.webhook.path');
+        $path = WebhookSettings::path($config);
         if (!\is_string($appUrl) || trim($appUrl) === '') {
             $this->components->error('APP_URL is not set: set it to the app\'s public https address, or pass --url.');
 
             return null;
         }
-        if (!\is_string($path) || trim($path, " \t\n\r\0\x0B/") === '') {
+        if ($path === null) {
             $this->components->error('config flashpi.webhook.path (FLASHPI_WEBHOOK_PATH) is empty: set it, or pass --url.');
 
             return null;
         }
 
-        return rtrim(trim($appUrl), '/') . '/' . ltrim(trim($path), '/');
+        return rtrim(trim($appUrl), '/') . $path;
     }
 
     /**
