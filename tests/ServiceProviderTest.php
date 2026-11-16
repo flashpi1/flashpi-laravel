@@ -7,12 +7,13 @@ namespace Flashpi\Laravel\Tests;
 use Flashpi\Flashpi;
 use Flashpi\Laravel\Facades\Flashpi as FlashpiFacade;
 use Flashpi\Laravel\FlashpiServiceProvider;
+use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 use Mockery\MockInterface;
 
 /**
- * What the service provider registers: the configuration and the client.
+ * What the service provider registers: the configuration, the client and the commands.
  */
 final class ServiceProviderTest extends TestCase
 {
@@ -83,6 +84,14 @@ final class ServiceProviderTest extends TestCase
         self::assertSame($first, $this->app?->make(Flashpi::class));
         self::assertSame('test', $first->environment);
         self::assertSame($first, FlashpiFacade::getFacadeRoot());
+    }
+
+    public function testRegistersTheCommands(): void
+    {
+        $commands = $this->app?->make(Kernel::class)->all() ?? [];
+        foreach (['flashpi:install'] as $name) {
+            self::assertArrayHasKey($name, $commands);
+        }
     }
 
     public function testComposerRegistersTheProviderForPackageDiscovery(): void
