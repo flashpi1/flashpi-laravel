@@ -73,6 +73,8 @@
       "git archive --format=tar --prefix=flashpi-laravel/ -o build/package.tar HEAD",
       "@php scripts/package_check.php build/package.tar"
     ],
+    "readme:check": "@php scripts/readme.php check",
+    "readme:generate": "@php scripts/readme.php generate",
     "test": "phpunit"
   },
   "scripts-descriptions": {
@@ -80,6 +82,8 @@
     "cs": "Checks the code style (PER-CS 2.0).",
     "cs:fix": "Fixes the code style.",
     "package:check": "Checks what Composer would install from the archive of HEAD (commit first).",
+    "readme:check": "Fails when tests/Examples/Readme does not match the READMEs.",
+    "readme:generate": "Rewrites tests/Examples/Readme from the php blocks of the READMEs.",
     "test": "Runs the tests."
   }
 }

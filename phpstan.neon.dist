@@ -21,6 +21,11 @@ parameters:
     - scripts
     - src
     - tests
+  excludePaths:
+    # The README examples: tests/Examples/ExamplesTest.php analyses them with a consumer's
+    # configuration (tests/Examples/phpstan.neon).
+    - tests/Examples/Readme/en_*.php
+    - tests/Examples/Readme/es_*.php
   tmpDir: .phpstan.cache
   # PHPUnit builds a test's state in setUp(), not in its constructor.
   additionalConstructors:

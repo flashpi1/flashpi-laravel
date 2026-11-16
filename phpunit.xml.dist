@@ -54,6 +54,7 @@
     </include>
     <exclude>
       <file>scripts/package_check.php</file>
+      <file>scripts/readme.php</file>
     </exclude>
   </source>
 
