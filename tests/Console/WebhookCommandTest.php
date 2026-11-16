@@ -117,6 +117,62 @@ final class WebhookCommandTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function testSuggestsForceForAHostItRefuses(): void
+    {
+        Http::preventStrayRequests();
+
+        $this->command('flashpi:webhook', ['--url' => 'https://hooks.acme.corp/flashpi/webhook'])
+            ->expectsOutputToContain('https://hooks.acme.corp/flashpi/webhook is not a public address')
+            ->expectsOutputToContain('If the host is public, pass --force')
+            ->assertFailed();
+
+        Http::assertNothingSent();
+    }
+
+    public function testRegistersAHostTheListRefusesWithForce(): void
+    {
+        $endpoint = Api::endpoint(url: 'https://hooks.acme.corp/flashpi/webhook');
+        Http::fake([
+            Api::url('/v1/webhook-endpoints/*/secret') => Api::json(['secret' => self::fakeSecret(), 'previousSecretExpiresAt' => null]),
+            Api::url('/v1/webhook-endpoints') => static fn(Request $request) => $request->method() === 'GET' ? Api::page([]) : Api::json($endpoint, 201),
+        ]);
+
+        $this->command('flashpi:webhook', ['--url' => 'https://hooks.acme.corp/flashpi/webhook', '--force' => true])
+            ->expectsOutputToContain('Registered https://hooks.acme.corp/flashpi/webhook')
+            ->assertSuccessful();
+
+        Http::assertSent(fn(Request $request): bool => $request->method() === 'POST'
+            && $request['url'] === 'https://hooks.acme.corp/flashpi/webhook');
+    }
+
+    public function testStillNeedsHttpsWithForce(): void
+    {
+        Http::preventStrayRequests();
+
+        $this->command('flashpi:webhook', ['--url' => 'http://shop.example.com/flashpi/webhook', '--force' => true])
+            ->expectsOutputToContain('is not an https URL')
+            ->doesntExpectOutputToContain('--force')
+            ->assertFailed();
+
+        Http::assertNothingSent();
+    }
+
+    public function testLetsTheApiRefuseTheUrlWithForce(): void
+    {
+        Http::fake([
+            Api::url('/v1/webhook-endpoints') => static fn(Request $request) => $request->method() === 'GET'
+                ? Api::page([])
+                : Api::problem(422, 'validation_failed'),
+        ]);
+
+        $this->command('flashpi:webhook', ['--url' => 'https://127.0.0.1/flashpi/webhook', '--force' => true])
+            ->expectsOutputToContain('422 validation_failed')
+            ->assertFailed();
+
+        Http::assertSent(fn(Request $request): bool => $request->method() === 'POST'
+            && $request['url'] === 'https://127.0.0.1/flashpi/webhook');
+    }
+
     public function testRefusesALocalAppUrl(): void
     {
         $this->config()->set('app.url', 'http://localhost');

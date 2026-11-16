@@ -21,8 +21,10 @@ use Symfony\Component\Console\Attribute\AsCommand;
  *
  * Flashpi must reach the URL from the internet, over HTTPS: a URL that is not https, or whose
  * host is local or private (localhost, *.test, 10.0.0.1, ...), is refused before anything is
- * sent. Endpoints belong to the key's environment: an fp_test_ key registers the endpoint of the
- * test events.
+ * sent. The host check is a list of names and ranges, with no DNS lookup, so --force skips it for
+ * a public host the list gets wrong; the URL must still be https, and Flashpi's API refuses a URL
+ * that is not public HTTPS (url_not_allowed) on its own. Endpoints belong to the key's
+ * environment: an fp_test_ key registers the endpoint of the test events.
  *
  * A new endpoint stays `pending_verification` until it answers Flashpi's challenge, which needs
  * the secret in the app's configuration: once it is there, `--verify` sends the challenge again.
@@ -64,7 +66,8 @@ final class WebhookCommand extends Command
         {--url= : The public HTTPS URL Flashpi sends the webhooks to (default: APP_URL plus the webhook route\'s path)}
         {--event=* : An event type the new endpoint receives, such as invoice.authorized (repeat it for several; default: every event)}
         {--thin : The new endpoint sends thin payloads (the event\'s id, type and environment only)}
-        {--verify : Send the verification challenge again to the endpoint already registered for the URL}';
+        {--verify : Send the verification challenge again to the endpoint already registered for the URL}
+        {--force : Skip the check that the URL\'s host is public, for a public host it gets wrong (the URL must still be https, and Flashpi\'s API checks it again)}';
 
     /** @var string */
     protected $description = 'Register the app\'s webhook endpoint in Flashpi and show its signing secret';
@@ -75,11 +78,15 @@ final class WebhookCommand extends Command
         if ($url === null) {
             return self::FAILURE;
         }
-        $problem = self::problem($url);
-        if ($problem !== null) {
-            $this->components->error("{$url} {$problem}");
+        $problem = self::urlProblem($url);
+        $hostProblem = $problem === null && $this->option('force') !== true ? self::hostProblem($url) : null;
+        if ($problem !== null || $hostProblem !== null) {
+            $this->components->error($url . ' ' . ($problem ?? $hostProblem));
             $this->line('  Flashpi must reach the URL from the internet: set APP_URL to the app\'s public https address, or pass --url.');
             $this->line('  For local development, a tunnel (ngrok, Expose, Cloudflare Tunnel) gives you one.');
+            if ($hostProblem !== null) {
+                $this->line('  If the host is public, pass --force: Flashpi\'s API checks the URL again and refuses one it cannot reach.');
+            }
 
             return self::FAILURE;
         }
@@ -105,9 +112,9 @@ final class WebhookCommand extends Command
     }
 
     /**
-     * What keeps Flashpi from delivering to a URL, or null when nothing does.
+     * Why the URL is not an https URL, or null when it is.
      */
-    private static function problem(string $url): ?string
+    private static function urlProblem(string $url): ?string
     {
         $parts = parse_url($url);
         if ($parts === false || !isset($parts['scheme'], $parts['host']) || $parts['host'] === '') {
@@ -116,7 +123,17 @@ final class WebhookCommand extends Command
         if (strtolower($parts['scheme']) !== 'https') {
             return 'is not an https URL: Flashpi delivers webhooks over HTTPS only';
         }
-        $host = strtolower(rtrim(trim($parts['host'], '[]'), '.'));
+
+        return null;
+    }
+
+    /**
+     * Why the URL's host cannot be reached from the internet, or null when it can be: a
+     * private or local IP, or a name of a local network. --force skips this check.
+     */
+    private static function hostProblem(string $url): ?string
+    {
+        $host = strtolower(rtrim(trim((string) parse_url($url, \PHP_URL_HOST), '[]'), '.'));
         if (filter_var($host, \FILTER_VALIDATE_IP) !== false) {
             // RFC 6890's global ranges: no private, loopback, link-local, shared or reserved one.
             $global = filter_var($host, \FILTER_VALIDATE_IP, \FILTER_FLAG_GLOBAL_RANGE) !== false;
