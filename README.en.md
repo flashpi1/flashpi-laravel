@@ -486,8 +486,8 @@ work as in the
 
 ## More documentation
 
-- [The SDKs' documentation](https://flashpi.com.ec/docs/sdks/) and the
-  [API's](https://flashpi.com.ec/docs/).
+- [The SDKs' documentation](https://flashpi.com.ec/docs/en/sdks/) and the
+  [API's](https://flashpi.com.ec/docs/en/).
 - The [PHP SDK's README](https://github.com/flashpi1/flashpi-php/blob/main/README.en.md): the
   types, retries, pagination, issuers and certificates.
 - [This package's decisions](https://github.com/flashpi1/flashpi-laravel/blob/main/docs/decisions.md).
