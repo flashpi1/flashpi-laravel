@@ -40,41 +40,62 @@ final class ClientBuilder
     public static function build(Container $container): Flashpi
     {
         $config = $container->make(Repository::class);
+        $language = self::language($config);
 
         return new Flashpi(
             apiKey: self::apiKey($config),
             baseUrl: self::text($config, 'base_url', 'FLASHPI_BASE_URL'),
             timeout: self::seconds($config),
             maxRetries: self::retries($config),
-            language: self::language($config),
-            httpClient: LaravelHttpClient::create($container),
+            language: $language,
+            httpClient: LaravelHttpClient::create(
+                $container,
+                // Without FLASHPI_LANGUAGE, each request follows the app's locale of that moment.
+                language: $language === null
+                    ? static fn(): string => self::localeLanguage($container->make(Repository::class)->get('app.locale'))
+                    : null,
+            ),
         );
     }
 
     /**
-     * The language of the API's messages: FLASHPI_LANGUAGE when set; otherwise 'es' when
-     * config('app.locale') starts with 'es' (es, es_EC, es-EC, ...), 'en' for any other.
+     * FLASHPI_LANGUAGE, the language of every request; null when it is not set, and then each
+     * request follows the app's locale (see localeLanguage()). A request's own `language` option
+     * wins over both.
      *
-     * The locale is read when the client is built (the first time the container resolves it).
-     * A request's own `language` option still wins.
-     *
-     * @return 'en'|'es'
+     * @return 'en'|'es'|null
      *
      * @throws FlashpiException
      */
-    private static function language(Repository $config): string
+    private static function language(Repository $config): ?string
     {
         $language = self::text($config, 'language', 'FLASHPI_LANGUAGE');
-        if ($language !== null) {
-            return match (strtolower($language)) {
-                'es' => 'es',
-                'en' => 'en',
-                default => throw new FlashpiException('config flashpi.language (FLASHPI_LANGUAGE) must be es or en'),
-            };
+        if ($language === null) {
+            return null;
         }
-        $locale = $config->get('app.locale');
 
-        return \is_string($locale) && str_starts_with(strtolower(trim($locale)), 'es') ? 'es' : 'en';
+        return match (strtolower($language)) {
+            'es' => 'es',
+            'en' => 'en',
+            default => throw new FlashpiException('config flashpi.language (FLASHPI_LANGUAGE) must be es or en'),
+        };
+    }
+
+    /**
+     * The language of a request without FLASHPI_LANGUAGE, from config('app.locale') when the
+     * request is sent (so App::setLocale() in a request, a job or under Octane counts): 'es' when
+     * the locale's language is es (es, es_EC, es-EC, es_EC.UTF-8, ...), 'en' for any other.
+     *
+     * @return 'en'|'es'
+     */
+    private static function localeLanguage(mixed $locale): string
+    {
+        if (!\is_string($locale)) {
+            return 'en';
+        }
+        $locale = trim($locale);
+
+        return strtolower(substr($locale, 0, strcspn($locale, '_-.@'))) === 'es' ? 'es' : 'en';
     }
 
     /**

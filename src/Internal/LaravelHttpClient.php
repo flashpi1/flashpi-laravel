@@ -41,6 +41,10 @@ use Psr\Http\Message\ResponseInterface;
  * record Http::assertSent() reads and ConnectionFailed when no answer came, so Telescope and the
  * tools that pair RequestSending with an end see the SDK's calls, retries included.
  *
+ * Without FLASHPI_LANGUAGE, the client is built without a language, and a request that names
+ * none gets the Accept-Language of the app's locale when it is sent (ClientBuilder); a request's
+ * own `language` option is already in its headers, so it wins.
+ *
  * The SDK sets its own options on every request (no redirects, no exceptions for error
  * statuses, its timeouts), and the Guzzle client passes them through the stack. The options of
  * a pending request (Http::globalOptions(), Laravel's default 30 s timeout) do not apply: they
@@ -56,13 +60,18 @@ final class LaravelHttpClient
      * @param (callable(RequestInterface, array<string, mixed>): PromiseInterface)|null $handler
      *        The handler that sends the requests (default: Guzzle's choice, curl when
      *        available). Tests pass Guzzle's MockHandler.
+     * @param (\Closure(): string)|null $language The Accept-Language of a request that has
+     *        none, read when it is sent; null to send none.
      */
-    public static function create(Container $container, ?callable $handler = null): ClientInterface
+    public static function create(Container $container, ?callable $handler = null, ?\Closure $language = null): ClientInterface
     {
         $transport = $handler ?? Utils::chooseHandler();
 
         return new Client([
-            'handler' => static function (RequestInterface $request, array $options) use ($container, $transport): PromiseInterface {
+            'handler' => static function (RequestInterface $request, array $options) use ($container, $transport, $language): PromiseInterface {
+                if ($language !== null && !$request->hasHeader('Accept-Language')) {
+                    $request = $request->withHeader('Accept-Language', $language());
+                }
                 $factory = $container->make(Factory::class);
                 $sent = null;
                 $stack = $factory->createPendingRequest()

@@ -8,6 +8,7 @@ use Flashpi\Exception\FlashpiException;
 use Flashpi\Flashpi;
 use Flashpi\Laravel\Tests\Support\Api;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\DataProvider;
 
@@ -221,9 +222,15 @@ final class ConfigurationTest extends TestCase
         yield 'Spanish in capitals' => [null, 'ES', 'es'];
         yield 'English' => [null, 'en', 'en'];
         yield 'Portuguese' => [null, 'pt_BR', 'en'];
-        // The owner's rule: a locale that starts with es.
+        // The locale's language is es, whatever follows it.
         yield 'Spanish with an encoding' => [null, 'es.UTF-8', 'es'];
         yield 'Spanish of Ecuador with an encoding' => [null, 'es_EC.UTF-8', 'es'];
+        yield 'Spanish with a modifier' => [null, 'es@euro', 'es'];
+        yield 'Spanish with spaces' => [null, ' es_EC ', 'es'];
+        // Languages whose code starts with es but are not Spanish.
+        yield 'Estonian' => [null, 'et_EE', 'en'];
+        yield 'Estonian, three letters' => [null, 'est', 'en'];
+        yield 'empty locale' => [null, '', 'en'];
     }
 
     #[DataProvider('languages')]
@@ -246,6 +253,42 @@ final class ConfigurationTest extends TestCase
         $this->client()->status->get();
 
         Http::assertSent(fn(Request $request): bool => $request->header('Accept-Language') === ['en']);
+    }
+
+    public function testFollowsTheLocaleOfTheMomentOnEveryRequest(): void
+    {
+        $this->config()->set('app.locale', 'en');
+        Http::fake(['*' => Api::json(['status' => 'operational'])]);
+        $client = $this->client();
+
+        $client->status->get();
+        App::setLocale('es_EC');
+        $client->status->get();
+        App::setLocale('en');
+        $client->status->get();
+
+        Http::assertSentCount(3);
+        Http::assertSentInOrder([
+            static fn(Request $request): bool => $request->header('Accept-Language') === ['en'],
+            static fn(Request $request): bool => $request->header('Accept-Language') === ['es'],
+            static fn(Request $request): bool => $request->header('Accept-Language') === ['en'],
+        ]);
+    }
+
+    public function testKeepsFlashpiLanguageWhenTheLocaleChanges(): void
+    {
+        $this->config()->set('flashpi.language', 'en');
+        $this->config()->set('app.locale', 'en');
+        Http::fake(['*' => Api::json(['status' => 'operational'])]);
+        $client = $this->client();
+
+        $client->status->get();
+        App::setLocale('es');
+        $client->status->get();
+
+        Http::assertSentCount(2);
+        Http::assertSent(static fn(Request $request): bool => $request->header('Accept-Language') === ['en']);
+        Http::assertNotSent(static fn(Request $request): bool => $request->header('Accept-Language') !== ['en']);
     }
 
     public function testLetsARequestChooseItsLanguage(): void
