@@ -391,6 +391,11 @@ final class IssueInvoiceTest extends TestCase
   `.env.testing`), para que el cliente se cree.
 - El SDK reintenta los 5xx con esperas crecientes: para probar errores sin esperar, agrega
   `<env name="FLASHPI_MAX_RETRIES" value="0"/>` al `phpunit.xml`.
+- Las subidas de certificados (`Flashpi::issuers()->certificates->upload()`,
+  `Flashpi::issuerOnboardings()->create()`) envían un cuerpo multipart que arma el propio SDK,
+  así que `$request->hasFile()`, `$request->data()` y `$request['password']` no ven ninguna de
+  sus partes: verifica con `$request->isMultipart()`, `$request->url()` y
+  `str_contains($request->body(), ...)`.
 - No hay `Flashpi::fake()`, y `Flashpi::shouldReceive()` no sirve (el cliente del SDK es una
   clase final): simula la API con `Http::fake()`.
 

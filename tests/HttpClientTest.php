@@ -101,6 +101,24 @@ final class HttpClientTest extends TestCase
         Event::assertDispatched(RequestSending::class, fn(RequestSending $event): bool => $event->request->url() === Api::url('/v1/status'));
     }
 
+    /**
+     * The README's advice for certificate uploads: the SDK builds the multipart body itself, so
+     * Laravel's form helpers see none of its parts, and tests assert on the body.
+     */
+    public function testShowsACertificateUploadAsAMultipartBody(): void
+    {
+        Http::fake([Api::url('/v1/issuers/iss_1/certificates') => Api::json(['id' => 'cert_1', 'status' => 'accepted'], 201)]);
+
+        FlashpiFacade::issuers()->certificates->upload('iss_1', ['file' => 'the bytes of the p12', 'password' => 'p12-password']);
+
+        Http::assertSent(fn(Request $request): bool => $request->isMultipart()
+            && $request->url() === Api::url('/v1/issuers/iss_1/certificates')
+            && str_contains($request->body(), 'the bytes of the p12'));
+        Http::assertSent(fn(Request $request): bool => !$request->hasFile('file')
+            && $request->data() === []
+            && !isset($request['password']));
+    }
+
     public function testRetriesWithTheSameIdempotencyKey(): void
     {
         Http::fake([

@@ -388,6 +388,11 @@ final class IssueInvoiceTest extends TestCase
   the client can be built.
 - The SDK retries 5xx answers with growing waits: to test errors without waiting, add
   `<env name="FLASHPI_MAX_RETRIES" value="0"/>` to `phpunit.xml`.
+- Certificate uploads (`Flashpi::issuers()->certificates->upload()`,
+  `Flashpi::issuerOnboardings()->create()`) send a multipart body that the SDK builds itself, so
+  `$request->hasFile()`, `$request->data()` and `$request['password']` see none of its parts:
+  assert on `$request->isMultipart()`, `$request->url()` and
+  `str_contains($request->body(), ...)`.
 - There is no `Flashpi::fake()`, and `Flashpi::shouldReceive()` does not work (the SDK's client
   is a final class): fake the API with `Http::fake()`.
 
