@@ -84,7 +84,9 @@ return [
          * it is ignored too.
          * `store` is a cache store of config/cache.php (unset: the default one); with several
          * servers, use one they share (database, redis, memcached, dynamodb), whose add() is
-         * atomic.
+         * atomic. The null store is refused (every delivery fails with a 500 that names this
+         * setting); the array store forgets the deliveries after each request, so it does not
+         * deduplicate outside tests; the apc store's add() is not atomic.
          */
         'deduplication' => [
             'store' => env('FLASHPI_WEBHOOK_CACHE_STORE'),

@@ -316,8 +316,10 @@ not dispatch the events again: it gets a 204, or a 409 while the first one is st
 handled. If a listener threw, the delivery is forgotten so that Flashpi's retry handles it.
 
 With several servers, use a cache store they share (database, redis, memcached or dynamodb) in
-`FLASHPI_WEBHOOK_CACHE_STORE`. Deliveries you replay from Flashpi (`replay`) keep their
-`webhook-id`: within the 24 hours they are dropped too.
+`FLASHPI_WEBHOOK_CACHE_STORE`. The `null` store is refused (every delivery fails with a 500 that
+names the variable); the `array` store forgets the deliveries after each request, so outside
+tests it drops nothing; and the `apc` store's `add()` is not atomic. Deliveries you replay from
+Flashpi (`replay`) keep their `webhook-id`: within the 24 hours they are dropped too.
 
 ### Thin payloads
 

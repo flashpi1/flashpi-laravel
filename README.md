@@ -317,8 +317,11 @@ procesando. Si un listener lanzó una excepción, la entrega se olvida para que 
 Flashpi la procese.
 
 Con varios servidores, usa un store de caché que compartan (database, redis, memcached o
-dynamodb) en `FLASHPI_WEBHOOK_CACHE_STORE`. Las entregas que reenvías desde Flashpi
-(`replay`) conservan su `webhook-id`: dentro de las 24 horas también se descartan.
+dynamodb) en `FLASHPI_WEBHOOK_CACHE_STORE`. El store `null` no se acepta (cada entrega falla con
+un 500 que nombra la variable); el store `array` olvida las entregas al terminar cada petición,
+así que fuera de las pruebas no descarta nada; y el `add()` del store `apc` no es atómico. Las
+entregas que reenvías desde Flashpi (`replay`) conservan su `webhook-id`: dentro de las 24 horas
+también se descartan.
 
 ### Payloads thin
 

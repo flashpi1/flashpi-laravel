@@ -10,6 +10,7 @@ use Flashpi\Flashpi;
 use Flashpi\Laravel\Events\WebhookEvents;
 use Flashpi\Laravel\Events\WebhookReceived;
 use Flashpi\Laravel\Internal\WebhookSettings;
+use Illuminate\Cache\NullStore;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Debug\ExceptionHandler;
@@ -68,7 +69,7 @@ final class WebhookController
     private const VERIFICATION = 'webhook_endpoint.verification';
 
     /**
-     * @throws FlashpiException A missing or malformed webhook setting.
+     * @throws FlashpiException A missing or malformed webhook setting, or the null cache store.
      * @throws \Throwable What a listener throws.
      */
     public function __invoke(
@@ -109,6 +110,13 @@ final class WebhookController
         }
 
         $store = $cache->store(WebhookSettings::store($config));
+        if ($store->getStore() instanceof NullStore) {
+            // Its add() always fails: every delivery would be answered 409, and nothing dispatched.
+            throw new FlashpiException(
+                'The null cache store cannot remember webhook deliveries: set FLASHPI_WEBHOOK_CACHE_STORE '
+                . '(config flashpi.webhook.deduplication.store) to a cache store that keeps them, or change CACHE_STORE',
+            );
+        }
         $ttl = WebhookSettings::ttl($config);
         $key = self::cacheKey($webhookId);
         if (!$store->add($key, self::PROCESSING, min(self::PROCESSING_LEASE, $ttl))) {

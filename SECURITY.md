@@ -23,6 +23,8 @@ the right team.
   your own, verify each one with `Flashpi::unwrapWebhook()` on the raw body first, and drop
   repeated deliveries by their `webhook-id`.
 - With several servers, keep the webhook deliveries in a cache store they share (database,
-  redis, memcached or dynamodb, whose `add()` is atomic), so a delivery is handled once.
+  redis, memcached or dynamodb, whose `add()` is atomic), so a delivery is handled once. The
+  route refuses the `null` store; the `array` store forgets the deliveries after each request, so
+  it drops no repeat outside tests; and the `apc` store's `add()` is not atomic.
 - Install the curl extension in production: it enforces each attempt's timeout over the whole
   answer.

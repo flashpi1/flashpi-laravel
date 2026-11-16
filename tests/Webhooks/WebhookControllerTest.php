@@ -461,6 +461,40 @@ final class WebhookControllerTest extends WebhookTestCase
         $this->deliver(Webhook::event('invoice.authorized'));
     }
 
+    /**
+     * @return iterable<string, array{string|null, string}>
+     */
+    public static function nullStores(): iterable
+    {
+        // The package's store setting, then the app's default store.
+        yield 'FLASHPI_WEBHOOK_CACHE_STORE' => ['none', 'array'];
+        yield 'CACHE_STORE' => [null, 'none'];
+    }
+
+    /**
+     * The null store's add() always fails: every delivery would get 409 for ever, and nothing
+     * would tell the app why.
+     */
+    #[DataProvider('nullStores')]
+    public function testRefusesTheNullCacheStore(?string $store, string $default): void
+    {
+        Exceptions::fake();
+        $this->config()->set('cache.stores.none', ['driver' => 'null']);
+        $this->config()->set('cache.default', $default);
+        $this->config()->set('flashpi.webhook.deduplication.store', $store);
+        Event::fake([WebhookReceived::class]);
+
+        $this->deliver(Webhook::event('invoice.authorized'))->assertStatus(500);
+
+        Exceptions::assertReported(static fn(FlashpiException $error): bool => str_starts_with(
+            $error->getMessage(),
+            'The null cache store cannot remember webhook deliveries: set FLASHPI_WEBHOOK_CACHE_STORE',
+        ));
+        Event::assertNothingDispatched();
+        // The challenge needs no cache: it is still answered.
+        $this->deliver(Webhook::verification('c'), 'challenge')->assertOk();
+    }
+
     public function testUsesTheDefaultsOfAConfigurationWithoutTheNestedKeys(): void
     {
         // An app's config/flashpi.php replaces the package's `webhook` array whole.

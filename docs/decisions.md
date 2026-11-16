@@ -222,12 +222,21 @@ while implementing**: those wait for the owner's confirmation.
   lifetimes: `Cache::add($key, 'processing', min(300, $ttl))` before dispatching (atomic in the
   stores with an add() of their own: the file store's takes an exclusive file lock, but its files
   are local, so with several servers it must be a store they share: database, redis, memcached,
-  dynamodb), then `put($key, 'processed', $ttl)` once the events went out. A repeat of a processed
-  delivery is answered 204 without dispatching; a repeat of one still being handled is answered
-  409, so that Flashpi tries it again later instead of taking a 204 for a delivery whose first
-  attempt may still fail (Flashpi waits 10 seconds for an answer and retries 5 seconds later, so a
-  slow synchronous listener meets its own retry). When a listener throws, the key is forgotten and
-  the error is thrown again, so Laravel's exception handler reports it and renders it (a 500, or an
+  dynamodb), then `put($key, 'processed', $ttl)` once the events went out. The null store
+  (`CACHE_STORE=null`, or `FLASHPI_WEBHOOK_CACHE_STORE` naming one) is refused with a
+  `FlashpiException`, a reported 500 that Flashpi retries, as for a missing secret: its `add()`
+  always fails (Laravel falls back to `get()` then `put()`, and its `put()` returns false), so
+  every verified delivery would get 409 for 72 hours and no event would ever be dispatched, with
+  nothing in the app to say why (**chosen while implementing**). It is checked with `instanceof
+  Illuminate\Cache\NullStore`, which loads nothing, so the package still requires no
+  `illuminate/cache`. The array store keeps its keys for one request (or one test) only, so it does
+  not deduplicate outside tests, and the apc store has no `add()` of its own, so Laravel's `get()`
+  then `put()` is not atomic: both are documented, not refused. A repeat of a processed delivery is
+  answered 204 without dispatching; a repeat of one still being handled is answered 409, so that
+  Flashpi tries it again later instead of taking a 204 for a delivery whose first attempt may still
+  fail (Flashpi waits 10 seconds for an answer and retries 5 seconds later, so a slow synchronous
+  listener meets its own retry). When a listener throws, the key is forgotten and the error is
+  thrown again, so Laravel's exception handler reports it and renders it (a 500, or an
   `HttpException`'s status) and Flashpi's retry dispatches the delivery again. When forgetting the
   key fails too, that error is reported and the listener's error is still the one thrown; the
   delivery stays `processing` until its lease ends (below), and Flashpi's next retry handles it.
