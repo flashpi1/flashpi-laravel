@@ -67,7 +67,10 @@ The package reads `config('flashpi...')` only, never the environment: with
 
 **Language.** With `FLASHPI_LANGUAGE`, the API's error messages come in that language. Without
 it, they come in Spanish when `config('app.locale')` starts with `es` (`es`, `es_EC`, `es-EC`,
-...) and in English otherwise. The `errorCode`s do not change with the language.
+...) and in English otherwise. The locale is read once, when the client is first resolved, and
+then kept for the rest of the process (a queue worker keeps it across jobs, even if a job calls
+`App::setLocale()`). For a language per user, pass the call's `language` option
+(`['language' => 'es']`). The `errorCode`s do not change with the language.
 
 ## Getting started
 

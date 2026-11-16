@@ -115,8 +115,12 @@ while implementing**: those wait for the owner's confirmation.
   `Language` type: anything else (`es_EC`, `fr`) throws when the client is built rather than being
   sent. Without it, `app.locale` gives `es` when it starts with `es` in any letter case, the
   owner's rule as written (`es`, `es_EC`, `es-EC`, `es_EC.UTF-8`). The locale is read when the
-  client is built: in a queue worker or under Octane, the locale of that moment stays. A request's
-  `language` option still wins.
+  client is built: in a queue worker, the locale of that moment stays for every later job, and
+  under Octane it stays only when the client is resolved at boot or warmed (otherwise each
+  request's sandbox builds its own client). The READMEs say so, and point to the call's `language`
+  option for a language per user. A request's `language` option still wins. Reading the locale on
+  every request instead (a middleware of the HTTP client that sends `Accept-Language` from the
+  locale of that moment) would change the behavior, so it is left to the owner.
 - **The facade.** `Flashpi\Laravel\Facades\Flashpi` returns any public property of the client
   for the method of its name, so a resource the SDK adds works at once (a test then requires its
   `@method` tag). A resource called with arguments, a name the client lacks and its private parts
