@@ -89,7 +89,7 @@ final class ServiceProviderTest extends TestCase
     public function testRegistersTheCommands(): void
     {
         $commands = $this->app?->make(Kernel::class)->all() ?? [];
-        foreach (['flashpi:install', 'flashpi:check'] as $name) {
+        foreach (['flashpi:install', 'flashpi:check', 'flashpi:webhook'] as $name) {
             self::assertArrayHasKey($name, $commands);
         }
     }

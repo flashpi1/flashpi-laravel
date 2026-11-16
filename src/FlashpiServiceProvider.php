@@ -7,6 +7,7 @@ namespace Flashpi\Laravel;
 use Flashpi\Flashpi;
 use Flashpi\Laravel\Console\CheckCommand;
 use Flashpi\Laravel\Console\InstallCommand;
+use Flashpi\Laravel\Console\WebhookCommand;
 use Flashpi\Laravel\Internal\ClientBuilder;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\ServiceProvider;
@@ -18,7 +19,7 @@ use Illuminate\Support\ServiceProvider;
  *   `php artisan vendor:publish --tag=flashpi-config` (or `php artisan flashpi:install`).
  * - Flashpi\Flashpi as a singleton built from that configuration, with Laravel's HTTP client
  *   underneath (see Internal\LaravelHttpClient): inject it, or use the Flashpi facade.
- * - The commands flashpi:install and flashpi:check.
+ * - The commands flashpi:install, flashpi:check and flashpi:webhook.
  */
 final class FlashpiServiceProvider extends ServiceProvider
 {
@@ -40,6 +41,7 @@ final class FlashpiServiceProvider extends ServiceProvider
         $this->commands([
             InstallCommand::class,
             CheckCommand::class,
+            WebhookCommand::class,
         ]);
     }
 }
