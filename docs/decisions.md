@@ -41,7 +41,8 @@ while implementing**: those wait for the owner's confirmation.
   on every request itself, so that client is supported; downloads (RIDE, XML) and retries are
   tested through it.
 - **Language.** `FLASHPI_LANGUAGE` when set; otherwise `es` when `app.locale` starts with `es`,
-  `en` otherwise.
+  `en` otherwise. Refined by the owner's answers below: the locale of each request, and its
+  language must be `es`.
 - **Commands.** `flashpi:install` publishes the configuration and prints the variables to add to
   .env; `flashpi:check` tests the key (its environment and the API's status); `flashpi:webhook`
   registers the app's endpoint (`APP_URL` plus the route's path, or `--url`) through the SDK's
@@ -133,14 +134,12 @@ while implementing**: those wait for the owner's confirmation.
   nor `$_SERVER`.
 - **The language.** `FLASHPI_LANGUAGE` must be `es` or `en` (in any letter case), the SDK's
   `Language` type: anything else (`es_EC`, `fr`) throws when the client is built rather than being
-  sent. Without it, `app.locale` gives `es` when it starts with `es` in any letter case, the
-  owner's rule as written (`es`, `es_EC`, `es-EC`, `es_EC.UTF-8`). The locale is read when the
-  client is built: in a queue worker, the locale of that moment stays for every later job, and
-  under Octane it stays only when the client is resolved at boot or warmed (otherwise each
-  request's sandbox builds its own client). The READMEs say so, and point to the call's `language`
-  option for a language per user. A request's `language` option still wins. Reading the locale on
-  every request instead (a middleware of the HTTP client that sends `Accept-Language` from the
-  locale of that moment) would change the behavior, so it is left to the owner.
+  sent. Without it, the client is built with no language, and `LaravelHttpClient` gives a request
+  that has no `Accept-Language` the one of `config('app.locale')` when it is sent, so
+  `App::setLocale()` in a request, a queued job or under Octane counts (the owner's answer, below).
+  The locale's language is the part before `_`, `-`, `.` or `@`, in any letter case: `es` for
+  `es`, `es_EC`, `es-EC`, `es_EC.UTF-8` or `es@euro`, and `en` for anything else, `et` and `est`
+  (Estonian) included. A request's `language` option is already in its headers, so it wins.
 - **The facade.** `Flashpi\Laravel\Facades\Flashpi` returns any public property of the client
   for the method of its name, so a resource the SDK adds works at once (a test then requires its
   `@method` tag). A resource called with arguments, a name the client lacks and its private parts

@@ -70,11 +70,11 @@ Laravel deja de leer el `.env`, así que después de cambiarlo vuelve a ejecutar
 `php artisan config:cache`.
 
 **Idioma.** Con `FLASHPI_LANGUAGE`, los mensajes de error de la API llegan en ese idioma. Sin
-ella, llegan en español si `config('app.locale')` empieza por `es` (`es`, `es_EC`, `es-EC`, ...)
-y en inglés en otro caso. El locale se lee una sola vez, cuando el cliente se resuelve por
-primera vez, y se conserva el resto del proceso (un worker de colas lo mantiene entre jobs
-aunque un job llame a `App::setLocale()`). Para un idioma por usuario, pasa la opción `language`
-de la llamada (`['language' => 'es']`). Los `errorCode` no cambian con el idioma.
+ella, cada llamada sigue el locale de la app en ese momento: en español si el idioma de
+`config('app.locale')` es `es` (`es`, `es_EC`, `es-EC`, `es_EC.UTF-8`, ...) y en inglés en otro
+caso. Así, un `App::setLocale()` en un request, en un job o bajo Octane cambia el idioma de las
+llamadas que vienen después. La opción `language` de una llamada (`['language' => 'es']`) gana
+sobre ambas. Los `errorCode` no cambian con el idioma.
 
 ## Primeros pasos
 

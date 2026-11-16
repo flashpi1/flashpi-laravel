@@ -69,11 +69,11 @@ The package reads `config('flashpi...')` only, never the environment: with
 `php artisan config:cache` again.
 
 **Language.** With `FLASHPI_LANGUAGE`, the API's error messages come in that language. Without
-it, they come in Spanish when `config('app.locale')` starts with `es` (`es`, `es_EC`, `es-EC`,
-...) and in English otherwise. The locale is read once, when the client is first resolved, and
-then kept for the rest of the process (a queue worker keeps it across jobs, even if a job calls
-`App::setLocale()`). For a language per user, pass the call's `language` option
-(`['language' => 'es']`). The `errorCode`s do not change with the language.
+it, each call follows the app's locale of that moment: Spanish when the language of
+`config('app.locale')` is `es` (`es`, `es_EC`, `es-EC`, `es_EC.UTF-8`, ...) and English
+otherwise. So an `App::setLocale()` in a request, a job or under Octane changes the language of
+the calls that follow. A call's `language` option (`['language' => 'es']`) wins over both. The
+`errorCode`s do not change with the language.
 
 ## Getting started
 
