@@ -40,10 +40,12 @@ if ($project === null || !is_file("{$project}/vendor/autoload.php") || !is_file(
 $project = (string) realpath($project);
 
 // The app's configuration reads these, as it would read them from its .env file; the array cache
-// keeps the check off the app's database.
-$secret = 'whsec_' . base64_encode(random_bytes(32));
+// keeps the check off the app's database. (No random_bytes(): with the lowest dependencies,
+// random_compat declares it without a return type.)
+$random = hash('sha256', uniqid('', true), true);
+$secret = 'whsec_' . base64_encode($random);
 $environment = [
-    'FLASHPI_API_KEY' => 'fp_test_' . bin2hex(random_bytes(24)),
+    'FLASHPI_API_KEY' => 'fp_test_' . bin2hex($random),
     'FLASHPI_WEBHOOK_SECRET' => $secret,
     'CACHE_STORE' => 'array',
 ];
