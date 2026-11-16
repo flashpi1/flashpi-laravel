@@ -31,7 +31,7 @@ final class HttpClientTest extends TestCase
 {
     public function testFakesTheCallsOfTheFacade(): void
     {
-        Http::fake([Api::url('/v1/invoices') => Api::json(['id' => Api::ID, 'status' => 'processing'], 201)]);
+        Http::fake([Api::url('/v1/invoices') => Api::json(['id' => Api::ID, 'status' => 'processing'], 202)]);
 
         $invoice = FlashpiFacade::invoices()->create(self::invoice());
 
@@ -106,7 +106,7 @@ final class HttpClientTest extends TestCase
         Http::fake([
             Api::url('/v1/invoices') => Http::sequence()
                 ->push((string) json_encode(['code' => 'internal_error']), 503, ['Retry-After' => '0', 'Content-Type' => 'application/problem+json'])
-                ->push(['id' => Api::ID, 'status' => 'processing'], 201),
+                ->push(['id' => Api::ID, 'status' => 'processing'], 202),
         ]);
 
         $invoice = FlashpiFacade::invoices()->create(self::invoice(), ['idempotencyKey' => 'order-42']);

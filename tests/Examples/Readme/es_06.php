@@ -24,7 +24,7 @@ final class IssueInvoiceTest extends TestCase
     {
         Http::preventStrayRequests(); // una petición sin respuesta falsa falla: nada llega a la API
         Http::fake([
-            'api.flashpi.com.ec/v1/invoices' => Http::response(['id' => 'doc_1', 'status' => 'processing'], 201),
+            'api.flashpi.com.ec/v1/invoices' => Http::response(['id' => 'doc_1', 'status' => 'processing'], 202),
         ]);
 
         $order = new Order(['id' => 42]);

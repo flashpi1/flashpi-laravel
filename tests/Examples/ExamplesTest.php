@@ -321,7 +321,7 @@ final class ExamplesTest extends TestCase
         $path = (string) parse_url($request->url(), \PHP_URL_PATH);
         $document = '/v1/documents/' . Reader::DOCUMENT_ID;
         if ($method === 'POST' && $path === '/v1/invoices') {
-            return Http::response(Reader::document('processing'), 201);
+            return Http::response(Reader::document('processing'), 202);
         }
         if ($method === 'GET' && $path === '/v1/documents') {
             return Http::response(['data' => [Reader::document()], 'pagination' => ['nextCursor' => null, 'hasMore' => false]]);
