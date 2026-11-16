@@ -157,7 +157,9 @@ while implementing**: those wait for the owner's confirmation.
   no new version) with full payloads (or `--thin`), reads its secret and prints
   `FLASHPI_WEBHOOK_SECRET=whsec_...` once, with the next steps: Flashpi's first challenge fails
   until the deployed app holds the secret, so `--verify` sends it again. The secret of an endpoint
-  that already exists is never printed.
+  that already exists is never printed: the command points to the endpoint's page in the console
+  and to `webhookEndpoints->getSecret()`, which return it at any time (as does `flashpi:check` when
+  the secret is not set).
 - **Static analysis.** PHPStan at level max with flashpi-php's flags, over `config`, `scripts`,
   `src` and `tests`. No Larastan: the package uses little of Laravel's magic (the container's
   `make()` is typed by Laravel's own generics, `config()` values are checked at run time anyway,

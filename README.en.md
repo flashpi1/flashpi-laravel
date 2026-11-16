@@ -226,9 +226,12 @@ php artisan flashpi:webhook
 
 The command registers `APP_URL` plus the route (or the `--url` URL) for every event of your
 key's environment, and shows the line `FLASHPI_WEBHOOK_SECRET=whsec_...` for your `.env`
-**only once**. Flashpi activates the endpoint once it answers its challenge, signed with that
-secret: deploy the app with the secret and run `php artisan flashpi:webhook --verify` to send it
-again. Run again, the command shows the endpoint's status.
+**only once**. If you lose it, the endpoint's page under Webhooks in the
+[console](https://flashpi.com.ec/app/) shows it again, as does
+`Flashpi::webhookEndpoints()->getSecret('<endpoint id>')` (run again, the command shows the id).
+Flashpi activates the endpoint once it answers its challenge, signed with that secret: deploy
+the app with the secret and run `php artisan flashpi:webhook --verify` to send it again. Run
+again, the command shows the endpoint's status.
 
 Flashpi must reach the URL from the internet: the command refuses a URL that is not https or
 that is local (`localhost`, `*.test`, `10.0.0.1`, ...). In development, use a tunnel (ngrok,

@@ -71,7 +71,10 @@ final class CheckCommand extends Command
             $this->components->twoColumnDetail('Webhook secret', 'set');
         } else {
             $this->components->twoColumnDetail('Webhook secret', '<fg=yellow>not set</>');
-            $this->components->warn('FLASHPI_WEBHOOK_SECRET is not set: run php artisan flashpi:webhook to register the app\'s webhook endpoint.');
+            $this->components->warn(
+                'FLASHPI_WEBHOOK_SECRET is not set: run php artisan flashpi:webhook to register the app\'s webhook endpoint, '
+                . 'or, if one is already registered, copy its secret from the endpoint\'s page under Webhooks in the Flashpi console (https://flashpi.com.ec/app/).',
+            );
         }
 
         return self::SUCCESS;

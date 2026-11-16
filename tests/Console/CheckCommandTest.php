@@ -60,7 +60,7 @@ final class CheckCommandTest extends TestCase
 
         $this->command('flashpi:check')
             // A line that holds the text of two expectations meets the first one only.
-            ->expectsOutputToContain('FLASHPI_WEBHOOK_SECRET is not set: run php artisan flashpi:webhook')
+            ->expectsOutputToContain('FLASHPI_WEBHOOK_SECRET is not set: run php artisan flashpi:webhook to register the app\'s webhook endpoint, or, if one is already registered, copy its secret from the endpoint\'s page under Webhooks in the Flashpi console (https://flashpi.com.ec/app/).')
             ->expectsOutputToContain('not set')
             ->assertSuccessful();
     }

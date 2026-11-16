@@ -225,7 +225,10 @@ php artisan flashpi:webhook
 
 El comando registra `APP_URL` más la ruta (o la URL de `--url`) para todos los eventos del
 ambiente de tu clave, y muestra **una sola vez** la línea `FLASHPI_WEBHOOK_SECRET=whsec_...`
-para tu `.env`. Flashpi activa el endpoint cuando responde su desafío, firmado con ese secreto:
+para tu `.env`. Si lo pierdes, la página del endpoint en Webhooks de la
+[consola](https://flashpi.com.ec/app/) lo muestra otra vez, igual que
+`Flashpi::webhookEndpoints()->getSecret('<id del endpoint>')` (el comando, ejecutado otra vez,
+muestra el id). Flashpi activa el endpoint cuando responde su desafío, firmado con ese secreto:
 despliega la app con el secreto y ejecuta `php artisan flashpi:webhook --verify` para enviarlo
 de nuevo. Ejecutado otra vez, el comando muestra el estado del endpoint.
 

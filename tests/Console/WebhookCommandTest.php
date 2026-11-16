@@ -35,6 +35,7 @@ final class WebhookCommandTest extends TestCase
 
         $this->command('flashpi:webhook')
             ->expectsOutputToContain("Registered {$endpoint['url']} for the test events ({$endpoint['id']}, full payloads).")
+            ->expectsOutputToContain('This command shows the secret only now; the endpoint\'s page under Webhooks in the Flashpi console (https://flashpi.com.ec/app/) shows it again:')
             ->expectsOutput("FLASHPI_WEBHOOK_SECRET={$secret}")
             ->expectsOutputToContain('then run php artisan flashpi:webhook --verify')
             ->assertSuccessful();
@@ -274,6 +275,8 @@ final class WebhookCommandTest extends TestCase
         $this->command('flashpi:webhook')
             ->expectsOutputToContain('is registered and waiting for verification.')
             ->expectsOutputToContain('run php artisan flashpi:webhook --verify')
+            ->expectsOutputToContain("Its secret is on the endpoint's page under Webhooks in the Flashpi console (https://flashpi.com.ec/app/), or in Flashpi::webhookEndpoints()->getSecret('we_019a1b2c').")
+            ->doesntExpectOutputToContain('FLASHPI_WEBHOOK_SECRET=')
             ->assertSuccessful();
 
         Http::assertNotSent(fn(Request $request): bool => $request->method() === 'POST');
@@ -307,6 +310,23 @@ final class WebhookCommandTest extends TestCase
 
         $this->command('flashpi:webhook', ['--verify' => true])
             ->expectsOutputToContain('FLASHPI_WEBHOOK_SECRET is not set here')
+            ->expectsOutputToContain("Flashpi::webhookEndpoints()->getSecret('we_019a1b2c')")
+            ->assertSuccessful();
+    }
+
+    public function testSaysWhereTheSecretOfAnActiveEndpointIsWhenItIsNotSetHere(): void
+    {
+        Http::fake([Api::url('/v1/webhook-endpoints') => Api::page([Api::endpoint(status: 'active')])]);
+
+        $this->command('flashpi:webhook')
+            ->expectsOutputToContain('is registered and active.')
+            ->expectsOutputToContain("FLASHPI_WEBHOOK_SECRET is not set here. Its secret is on the endpoint's page under Webhooks in the Flashpi console (https://flashpi.com.ec/app/), or in Flashpi::webhookEndpoints()->getSecret('we_019a1b2c').")
+            ->assertSuccessful();
+
+        $this->config()->set('flashpi.webhook.secret', self::fakeSecret());
+        $this->command('flashpi:webhook')
+            ->expectsOutputToContain('is registered and active.')
+            ->doesntExpectOutputToContain('getSecret(')
             ->assertSuccessful();
     }
 

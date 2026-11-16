@@ -15,7 +15,9 @@ use Symfony\Component\Console\Attribute\AsCommand;
 
 /**
  * `php artisan flashpi:webhook`: registers the app's webhook endpoint in Flashpi (APP_URL plus
- * the package's route, or --url) and shows its signing secret once, for FLASHPI_WEBHOOK_SECRET.
+ * the package's route, or --url) and shows its signing secret once, for FLASHPI_WEBHOOK_SECRET;
+ * for an endpoint that already exists, it says where to read the secret again (the endpoint's
+ * page in the Flashpi console, or webhookEndpoints->getSecret()).
  *
  * Flashpi must reach the URL from the internet, over HTTPS: a URL that is not https, or whose
  * host is local or private (localhost, *.test, 10.0.0.1, ...), is refused before anything is
@@ -53,6 +55,9 @@ final class WebhookCommand extends Command
         'intranet',
         'private',
     ];
+
+    /** The Flashpi console, where an endpoint's page shows its secret. */
+    private const CONSOLE = 'https://flashpi.com.ec/app/';
 
     /** @var string */
     protected $signature = 'flashpi:webhook
@@ -196,7 +201,7 @@ final class WebhookCommand extends Command
         $secret = $flashpi->webhookEndpoints->getSecret($endpoint['id']);
 
         $this->components->info("Registered {$endpoint['url']} for the {$endpoint['environment']} events ({$endpoint['id']}, {$endpoint['payloadMode']} payloads).");
-        $this->line('  Add this line to the app\'s .env file. The secret is shown only now:');
+        $this->line('  Add this line to the app\'s .env file. This command shows the secret only now; the endpoint\'s page under Webhooks in the Flashpi console (' . self::CONSOLE . ') shows it again:');
         $this->newLine();
         $this->line("FLASHPI_WEBHOOK_SECRET={$secret['secret']}");
         $this->newLine();
@@ -225,10 +230,14 @@ final class WebhookCommand extends Command
 
             return self::FAILURE;
         }
+        $secretIsSet = self::secretIsSet($config);
         if ($endpoint['status'] === 'active') {
             $this->components->info("{$name} is registered and active.");
             if ($this->option('verify') === true) {
                 $this->line('  It needs no verification.');
+            }
+            if (!$secretIsSet) {
+                $this->line('  FLASHPI_WEBHOOK_SECRET is not set here. ' . self::whereTheSecretIs($endpoint));
             }
 
             return self::SUCCESS;
@@ -241,18 +250,37 @@ final class WebhookCommand extends Command
         if ($this->option('verify') !== true) {
             $this->components->warn("{$name} is registered and waiting for verification.");
             $this->line('  Once the app\'s FLASHPI_WEBHOOK_SECRET holds its secret, run php artisan flashpi:webhook --verify.');
+            $this->line('  ' . self::whereTheSecretIs($endpoint));
 
             return self::SUCCESS;
         }
-        $secret = $config->get('flashpi.webhook.secret');
-        if (!\is_string($secret) || trim($secret) === '') {
+        if (!$secretIsSet) {
             $this->components->warn('FLASHPI_WEBHOOK_SECRET is not set here: the deployed app needs it to answer the challenge.');
+            $this->line('  ' . self::whereTheSecretIs($endpoint));
         }
         $flashpi->webhookEndpoints->verify($endpoint['id']);
         $this->components->info("Flashpi sent the verification challenge to {$endpoint['url']} again.");
         $this->line('  Run php artisan flashpi:webhook in a few seconds to see whether the endpoint is active.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Where the secret of an existing endpoint can be read again: this command prints only the
+     * secret of an endpoint it creates.
+     *
+     * @param WebhookEndpoint $endpoint
+     */
+    private static function whereTheSecretIs(array $endpoint): string
+    {
+        return 'Its secret is on the endpoint\'s page under Webhooks in the Flashpi console (' . self::CONSOLE . "), or in Flashpi::webhookEndpoints()->getSecret('{$endpoint['id']}').";
+    }
+
+    private static function secretIsSet(Repository $config): bool
+    {
+        $secret = $config->get('flashpi.webhook.secret');
+
+        return \is_string($secret) && trim($secret) !== '';
     }
 
     /**
