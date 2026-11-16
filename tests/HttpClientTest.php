@@ -13,11 +13,16 @@ use Flashpi\Laravel\Internal\LaravelHttpClient;
 use Flashpi\Laravel\Tests\Support\Api;
 use Flashpi\Version;
 use GuzzleHttp\Exception\ConnectException;
+use GuzzleHttp\Exception\ServerException;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\Psr7\Request as PsrRequest;
 use GuzzleHttp\Psr7\Response;
+use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Http\Client\Events\ConnectionFailed;
 use Illuminate\Http\Client\Events\RequestSending;
+use Illuminate\Http\Client\Events\ResponseReceived;
 use Illuminate\Http\Client\Request;
+use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Psr\Http\Message\RequestInterface;
@@ -99,6 +104,101 @@ final class HttpClientTest extends TestCase
 
         Http::assertSent(fn(Request $request): bool => $request->header('X-App') === ['shop']);
         Event::assertDispatched(RequestSending::class, fn(RequestSending $event): bool => $event->request->url() === Api::url('/v1/status'));
+    }
+
+    /**
+     * What PendingRequest::send() dispatches after the stack: Telescope and the tools that pair
+     * RequestSending with an end listen to ResponseReceived and ConnectionFailed.
+     */
+    public function testDispatchesResponseReceivedForAnAnswer(): void
+    {
+        Event::fake([RequestSending::class, ResponseReceived::class, ConnectionFailed::class]);
+        Http::fake([Api::url('/v1/invoices') => Api::problem(422, 'total_mismatch')]);
+
+        try {
+            FlashpiFacade::invoices()->create(self::invoice());
+            self::fail('The 422 was not thrown');
+        } catch (ApiException) {
+        }
+
+        Event::assertDispatchedTimes(RequestSending::class, 1);
+        Event::assertDispatchedTimes(ResponseReceived::class, 1);
+        Event::assertDispatched(ResponseReceived::class, fn(ResponseReceived $event): bool => $event->request->method() === 'POST'
+            && $event->request->url() === Api::url('/v1/invoices')
+            && $event->request->hasHeader('Idempotency-Key')
+            && $event->response->status() === 422
+            && $event->response->json('code') === 'total_mismatch');
+        Event::assertNotDispatched(ConnectionFailed::class);
+    }
+
+    public function testRecordsAndReportsAFailedConnectionOfEveryAttempt(): void
+    {
+        Event::fake([ResponseReceived::class, ConnectionFailed::class]);
+        $this->config()->set('flashpi.max_retries', 1);
+        Http::fake(['*' => Http::failedConnection('Could not resolve host')]);
+
+        try {
+            FlashpiFacade::status()->get();
+            self::fail('The failed connection was not thrown');
+        } catch (ConnectionException $error) {
+            self::assertStringContainsString('Could not resolve host', $error->getMessage());
+        }
+
+        Http::assertSentCount(2);
+        Http::assertSent(fn(Request $request, ?ClientResponse $response): bool => $request->url() === Api::url('/v1/status') && $response === null);
+        Event::assertDispatchedTimes(ConnectionFailed::class, 2);
+        Event::assertDispatched(ConnectionFailed::class, fn(ConnectionFailed $event): bool => $event->request->url() === Api::url('/v1/status')
+            && $event->exception->getMessage() === 'Could not resolve host'
+            && $event->exception->getPrevious() instanceof ConnectException);
+        Event::assertNotDispatched(ResponseReceived::class);
+    }
+
+    public function testRecordsAndReportsAConnectionFailureOfTheHandler(): void
+    {
+        Event::fake([ResponseReceived::class, ConnectionFailed::class]);
+        $transport = new MockHandler([
+            new ConnectException('Connection refused', new PsrRequest('GET', Api::url('/v1/status'))),
+        ]);
+        Http::record();
+
+        try {
+            $this->clientOver($transport, 0)->status->get();
+            self::fail('The failed connection was not thrown');
+        } catch (ConnectionException) {
+        }
+
+        Http::assertSentCount(1);
+        Http::assertSent(fn(Request $request, ?ClientResponse $response): bool => $request->url() === Api::url('/v1/status') && $response === null);
+        Event::assertDispatchedTimes(ConnectionFailed::class, 1);
+        Event::assertDispatched(ConnectionFailed::class, fn(ConnectionFailed $event): bool => $event->exception->getMessage() === 'Connection refused');
+        Event::assertNotDispatched(ResponseReceived::class);
+    }
+
+    /**
+     * A handler that rejects with an answer (Guzzle's BadResponseException, which a client of the
+     * caller's may throw): send() records the answer and dispatches no ConnectionFailed, and the
+     * SDK reads the answer as the API's.
+     */
+    public function testRecordsTheAnswerOfARejectionThatCarriesOne(): void
+    {
+        Event::fake([ResponseReceived::class, ConnectionFailed::class]);
+        $request = new PsrRequest('GET', Api::url('/v1/status'));
+        $transport = new MockHandler([
+            new ServerException('Server error', $request, new Response(503, ['Content-Type' => 'application/problem+json'], '{"code":"unavailable"}')),
+        ]);
+        Http::record();
+
+        try {
+            $this->clientOver($transport, 0)->status->get();
+            self::fail('The 503 was not thrown');
+        } catch (ApiException $error) {
+            self::assertSame(503, $error->status);
+        }
+
+        Http::assertSentCount(1);
+        Http::assertSent(fn(Request $request, ?ClientResponse $response): bool => $response?->status() === 503);
+        Event::assertNotDispatched(ConnectionFailed::class);
+        Event::assertNotDispatched(ResponseReceived::class);
     }
 
     /**
@@ -205,7 +305,9 @@ final class HttpClientTest extends TestCase
 
         self::assertSame(['status' => 'operational'], $this->clientOver($transport, 1)->status->get());
         self::assertCount(0, $transport);
-        Http::assertSentCount(1);
+        Http::assertSentCount(2);
+        Http::assertSent(fn(Request $request, ?ClientResponse $response): bool => $response === null);
+        Http::assertSent(fn(Request $request, ?ClientResponse $response): bool => $response?->status() === 200);
     }
 
     public function testReportsANetworkFailureAfterTheRetries(): void
@@ -233,14 +335,23 @@ final class HttpClientTest extends TestCase
         Http::assertSent(fn(Request $request): bool => str_ends_with($request->url(), '/pdf') && $request->header('Accept') === ['application/pdf, application/problem+json']);
     }
 
+    /**
+     * A listener of ResponseReceived that reads the body (Telescope does) leaves the stream at its
+     * end: the SDK rewinds it before reading it.
+     */
     public function testDownloadsALargeRideThroughTheHandler(): void
     {
         $pdf = '%PDF-1.7' . random_bytes(2_000_000) . '%%EOF';
         $transport = new MockHandler([
             new Response(200, ['Content-Type' => 'application/pdf', 'Content-Length' => (string) \strlen($pdf)], $pdf),
         ]);
+        $read = [];
+        $this->dispatcher()->listen(ResponseReceived::class, static function (ResponseReceived $event) use (&$read): void {
+            $read[] = $event->response->body();
+        });
 
         self::assertSame($pdf, $this->clientOver($transport)->documents->pdf(Api::ID));
+        self::assertSame([$pdf], $read);
     }
 
     public function testRefusesAnAnswerCutShort(): void
@@ -266,6 +377,11 @@ final class HttpClientTest extends TestCase
             self::assertNull($error->getPrevious());
             self::assertStringNotContainsString($this->apiKey, $error->getTraceAsString());
         }
+    }
+
+    private function dispatcher(): Dispatcher
+    {
+        return $this->app?->make(Dispatcher::class) ?? throw new \LogicException('The app is not running');
     }
 
     /**
