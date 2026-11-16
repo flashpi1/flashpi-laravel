@@ -215,6 +215,44 @@ final class WebhookControllerTest extends WebhookTestCase
         Event::assertNothingDispatched();
     }
 
+    /**
+     * @return iterable<string, array{mixed, array<string, string>}>
+     */
+    public static function requestsWithoutTheWebhookHeaders(): iterable
+    {
+        $headers = ['webhook-id' => Webhook::ID, 'webhook-timestamp' => '1792152000', 'webhook-signature' => 'v1,c2lnbmF0dXJl'];
+        foreach (['unset' => null, 'malformed' => 'whsec_not base64!'] as $name => $secret) {
+            yield "secret {$name}, no headers" => [$secret, []];
+            foreach (array_keys($headers) as $header) {
+                $without = $headers;
+                unset($without[$header]);
+                yield "secret {$name}, no {$header}" => [$secret, $without];
+                yield "secret {$name}, an empty {$header}" => [$secret, [...$headers, $header => '']];
+            }
+        }
+    }
+
+    /**
+     * A scanner's POST to the route, in an app that calls the API only and has no secret: it
+     * cannot be a Flashpi delivery, so it is refused before the secret is read.
+     *
+     * @param array<string, string> $headers
+     */
+    #[DataProvider('requestsWithoutTheWebhookHeaders')]
+    public function testRefusesARequestWithoutTheWebhookHeadersBeforeReadingTheSecret(mixed $secret, array $headers): void
+    {
+        Exceptions::fake();
+        $this->config()->set('flashpi.webhook.secret', $secret);
+        Event::fake([WebhookReceived::class]);
+
+        $response = $this->postRaw(Webhook::body(Webhook::event('invoice.authorized')), $headers);
+
+        $response->assertStatus(400);
+        self::assertSame('', $response->getContent());
+        Exceptions::assertNothingReported();
+        Event::assertNothingDispatched();
+    }
+
     public function testHandlesARepeatedDeliveryOnce(): void
     {
         $events = $this->record([WebhookReceived::class, InvoiceAuthorized::class]);

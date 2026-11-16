@@ -62,7 +62,9 @@ return [
         /*
          * The endpoint's signing secret (whsec_...), which `php artisan flashpi:webhook` shows
          * when it registers the endpoint. Deliveries without a valid signature are answered 400;
-         * without the secret, every delivery fails (500) and Flashpi retries it.
+         * without the secret, every request that carries the webhook headers fails (500, reported)
+         * and Flashpi retries it, while one without them gets a 400. An app that only calls the
+         * API can turn the route off (FLASHPI_WEBHOOK_ENABLED=false).
          */
         'secret' => env('FLASHPI_WEBHOOK_SECRET'),
 

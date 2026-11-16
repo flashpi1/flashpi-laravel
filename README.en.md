@@ -446,8 +446,10 @@ as in the [SDK's README](https://github.com/flashpi1/flashpi-php/blob/main/READM
   (Telescope, Pulse, Nightwatch, a log of your own), hide their `Authorization` header: it holds
   your key.
 - The webhook route accepts only deliveries signed with your `FLASHPI_WEBHOOK_SECRET` and recent
-  (5 minutes). Without the secret it answers 500 to everything, so that you notice and Flashpi
-  retries.
+  (5 minutes). Without the secret it answers 500 to the requests that carry the webhook headers
+  (`webhook-id`, `webhook-timestamp` and `webhook-signature`), so that you notice and Flashpi
+  retries; those without them get a 400. If your app only calls the API, remove the route with
+  `FLASHPI_WEBHOOK_ENABLED=false`.
 - Report security problems privately: see
   [SECURITY.md](https://github.com/flashpi1/flashpi-laravel/blob/main/SECURITY.md).
 

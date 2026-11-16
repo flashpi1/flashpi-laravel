@@ -450,7 +450,10 @@ idempotencia funcionan como en el
   salientes (Telescope, Pulse, Nightwatch, un log propio), oculta su encabezado `Authorization`:
   lleva tu clave.
 - La ruta de webhooks acepta solo entregas firmadas con tu `FLASHPI_WEBHOOK_SECRET` y recientes
-  (5 minutos). Sin el secreto responde 500 a todo, para que lo notes y Flashpi reintente.
+  (5 minutos). Sin el secreto responde 500 a las peticiones que traen los encabezados de webhook
+  (`webhook-id`, `webhook-timestamp` y `webhook-signature`), para que lo notes y Flashpi
+  reintente; las que no los traen reciben un 400. Si tu app solo llama a la API, quita la ruta
+  con `FLASHPI_WEBHOOK_ENABLED=false`.
 - Reporta los problemas de seguridad en privado: ver
   [SECURITY.md](https://github.com/flashpi1/flashpi-laravel/blob/main/SECURITY.md).
 

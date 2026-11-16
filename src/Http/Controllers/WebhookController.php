@@ -25,8 +25,11 @@ use Illuminate\Http\Response;
  * 1. It verifies the Standard Webhooks signature through the SDK (Flashpi::unwrapWebhook()), with
  *    the raw body, the headers and FLASHPI_WEBHOOK_SECRET: a delivery that does not verify (a
  *    bad or missing signature, a timestamp more than 5 minutes away, a body that is not a
- *    Flashpi event) is answered 400, with no detail. Without a valid secret in the configuration
- *    it throws a FlashpiException (a 500, reported like any error) so that Flashpi retries.
+ *    Flashpi event) is answered 400, with no detail. A request without the webhook-id,
+ *    webhook-timestamp and webhook-signature headers cannot be a Flashpi delivery: it is answered
+ *    400 before the secret is read, so an app that never set one is not flooded with reports by
+ *    scanners. A request that carries them, without a valid secret in the configuration, throws a
+ *    FlashpiException (a 500, reported like any error) so that Flashpi retries.
  * 2. It answers the endpoint's verification challenge (`webhook_endpoint.verification`) with
  *    `{"challenge": "..."}`, and dispatches nothing for it.
  * 3. It remembers the delivery's webhook-id in the cache (24 hours, Cache::add(), which is atomic
@@ -65,6 +68,9 @@ final class WebhookController
         CacheFactory $cache,
         ExceptionHandler $exceptions,
     ): Response|JsonResponse {
+        if (!self::hasWebhookHeaders($request)) {
+            return new Response('', 400);
+        }
         $secret = WebhookSettings::secret($config);
         try {
             $payload = Flashpi::unwrapWebhook($request->getContent(), $request->headers, $secret);
@@ -117,6 +123,22 @@ final class WebhookController
         }
 
         return new Response('', 204);
+    }
+
+    /**
+     * Whether the request carries the three Standard Webhooks headers, each with a value. It
+     * refuses only what the SDK's `missing_headers` refuses too (the SDK joins the values of a
+     * repeated webhook-signature), so no delivery the SDK would accept is turned away.
+     */
+    private static function hasWebhookHeaders(Request $request): bool
+    {
+        foreach (['webhook-id', 'webhook-timestamp', 'webhook-signature'] as $name) {
+            if (implode('', $request->headers->all($name)) === '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

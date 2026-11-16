@@ -201,7 +201,15 @@ while implementing**: those wait for the owner's confirmation.
   missing or malformed secret throws a `FlashpiException` that names `FLASHPI_WEBHOOK_SECRET`,
   never the value, so Laravel reports it and answers 500. A 400 would hide the app's
   misconfiguration among forged requests; with a 500 the app's error tracker shows it, and
-  Flashpi retries the delivery (for 72 hours) until the secret is deployed.
+  Flashpi retries the delivery (for 72 hours) until the secret is deployed. A request without
+  the three headers (`webhook-id`, `webhook-timestamp`, `webhook-signature`, each with a value)
+  is a 400 before the secret is read, because it cannot be a Flashpi delivery: the route is on by
+  default, so an app that only calls the API, with no secret, would otherwise report every
+  scanner's POST and fill its error tracker. The check refuses only what the SDK's
+  `missing_headers` refuses too (the values of a repeated header are joined, as the SDK joins
+  `webhook-signature`'s), so with a valid secret every answer stays the same. Only requests that
+  carry the headers get the reported 500 for a missing or malformed secret; one with made-up
+  headers still reports.
 - **The challenge.** `webhook_endpoint.verification` is answered before anything else is done
   with the delivery: 200 with `{"challenge": "..."}`, every time it comes (`flashpi:webhook
   --verify` sends a new one), never remembered in the cache and with no event dispatched, not even
