@@ -8,8 +8,13 @@ use Flashpi\Flashpi;
 use Flashpi\Laravel\Console\CheckCommand;
 use Flashpi\Laravel\Console\InstallCommand;
 use Flashpi\Laravel\Console\WebhookCommand;
+use Flashpi\Laravel\Http\Controllers\WebhookController;
 use Flashpi\Laravel\Internal\ClientBuilder;
+use Flashpi\Laravel\Internal\WebhookSettings;
+use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Container\Container;
+use Illuminate\Contracts\Foundation\CachesRoutes;
+use Illuminate\Contracts\Routing\Registrar;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -19,6 +24,12 @@ use Illuminate\Support\ServiceProvider;
  *   `php artisan vendor:publish --tag=flashpi-config` (or `php artisan flashpi:install`).
  * - Flashpi\Flashpi as a singleton built from that configuration, with Laravel's HTTP client
  *   underneath (see Internal\LaravelHttpClient): inject it, or use the Flashpi facade.
+ * - The webhook route, `POST /flashpi/webhook` named `flashpi.webhook` (see
+ *   Http\Controllers\WebhookController), unless FLASHPI_WEBHOOK_ENABLED is false. It sits
+ *   outside the `web` middleware group: no session and no CSRF token, since the signature
+ *   authenticates each delivery. It is a controller, so `php artisan route:cache` caches it; with
+ *   cached routes the provider adds nothing, and a change to FLASHPI_WEBHOOK_PATH needs
+ *   `php artisan route:cache` again.
  * - The commands flashpi:install, flashpi:check and flashpi:webhook.
  */
 final class FlashpiServiceProvider extends ServiceProvider
@@ -34,6 +45,7 @@ final class FlashpiServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $this->registerWebhookRoute();
         if (!$this->app->runningInConsole()) {
             return;
         }
@@ -43,5 +55,21 @@ final class FlashpiServiceProvider extends ServiceProvider
             CheckCommand::class,
             WebhookCommand::class,
         ]);
+    }
+
+    private function registerWebhookRoute(): void
+    {
+        if ($this->app instanceof CachesRoutes && $this->app->routesAreCached()) {
+            return;
+        }
+        $config = $this->app->make(Repository::class);
+        $path = WebhookSettings::path($config);
+        if (!WebhookSettings::enabled($config) || $path === null) {
+            return;
+        }
+        $this->app->make(Registrar::class)
+            ->post($path, WebhookController::class)
+            ->middleware(WebhookSettings::middleware($config))
+            ->name(WebhookSettings::ROUTE);
     }
 }

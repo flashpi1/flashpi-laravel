@@ -47,8 +47,9 @@ return [
      */
     'webhook' => [
         /*
-         * Whether the package registers its POST route for the webhooks. Turn it off to receive
-         * them with a route of your own.
+         * Whether the package registers its POST route for the webhooks (anything but false, 0,
+         * off or no keeps it on). Turn it off to receive them with a route of your own. With
+         * `php artisan route:cache`, cache the routes again after changing this or the path.
          */
         'enabled' => env('FLASHPI_WEBHOOK_ENABLED', true),
 
@@ -60,7 +61,8 @@ return [
 
         /*
          * The endpoint's signing secret (whsec_...), which `php artisan flashpi:webhook` shows
-         * when it registers the endpoint. Deliveries without a valid signature are refused.
+         * when it registers the endpoint. Deliveries without a valid signature are answered 400;
+         * without the secret, every delivery fails (500) and Flashpi retries it.
          */
         'secret' => env('FLASHPI_WEBHOOK_SECRET'),
 
@@ -72,8 +74,13 @@ return [
 
         /*
          * A delivery can arrive more than once: its webhook-id is remembered in the cache, for
-         * `ttl` seconds (24 hours), so it is handled only once. `store` is a cache store of
-         * config/cache.php (unset: the default one); with several servers, use one they share.
+         * `ttl` seconds (24 hours), so its events are dispatched once. A delivery whose listener
+         * throws is forgotten, so that Flashpi's retry dispatches it again. A replayed delivery
+         * (webhookEndpoints->deliveries->replay()) keeps its webhook-id: within the ttl it is
+         * ignored too.
+         * `store` is a cache store of config/cache.php (unset: the default one); with several
+         * servers, use one they share (database, redis, memcached, dynamodb), whose add() is
+         * atomic.
          */
         'deduplication' => [
             'store' => env('FLASHPI_WEBHOOK_CACHE_STORE'),

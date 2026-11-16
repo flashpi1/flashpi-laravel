@@ -7,13 +7,20 @@ namespace Flashpi\Laravel\Tests;
 use Flashpi\Flashpi;
 use Flashpi\Laravel\Facades\Flashpi as FlashpiFacade;
 use Flashpi\Laravel\FlashpiServiceProvider;
+use Illuminate\Config\Repository as Config;
+use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Contracts\Foundation\CachesRoutes;
+use Illuminate\Contracts\Routing\Registrar;
+use Illuminate\Events\Dispatcher as EventDispatcher;
+use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
 use Mockery\MockInterface;
 
 /**
- * What the service provider registers: the configuration, the client and the commands.
+ * What the service provider registers: the configuration, the client, the webhook route and the
+ * commands.
  */
 final class ServiceProviderTest extends TestCase
 {
@@ -67,11 +74,31 @@ final class ServiceProviderTest extends TestCase
         self::assertSame([FlashpiServiceProvider::CONFIG => $this->app?->configPath('flashpi.php')], $paths);
     }
 
-    public function testRegistersNothingForTheConsoleOutsideIt(): void
+    public function testRegistersOnlyTheWebhookRouteOutsideTheConsole(): void
     {
+        $router = new Router(new EventDispatcher());
         // The mock refuses any other call (configPath() for the publishing, among them).
         /** @var Application&MockInterface $app */
         $app = \Mockery::mock(Application::class);
+        $app->shouldReceive('runningInConsole')->once()->andReturn(false);
+        $app->shouldReceive('make')->once()->with(Repository::class)->andReturn(new Config([]));
+        $app->shouldReceive('make')->once()->with(Registrar::class)->andReturn($router);
+
+        (new FlashpiServiceProvider($app))->boot();
+
+        $router->getRoutes()->refreshNameLookups();
+        $route = $router->getRoutes()->getByName('flashpi.webhook');
+        self::assertNotNull($route);
+        self::assertSame('flashpi/webhook', $route->uri());
+        self::assertSame(['POST'], $route->methods());
+    }
+
+    public function testRegistersNoRouteWhenTheRoutesAreCached(): void
+    {
+        // The cached routes hold the webhook route as it was when they were cached.
+        /** @var Application&CachesRoutes&MockInterface $app */
+        $app = \Mockery::mock(Application::class, CachesRoutes::class);
+        $app->shouldReceive('routesAreCached')->once()->andReturn(true);
         $app->shouldReceive('runningInConsole')->once()->andReturn(false);
 
         (new FlashpiServiceProvider($app))->boot();
