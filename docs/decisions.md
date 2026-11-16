@@ -227,12 +227,14 @@ while implementing**: those wait for the owner's confirmation.
   fail (Flashpi waits 10 seconds for an answer and retries 5 seconds later, so a slow synchronous
   listener meets its own retry). When a listener throws, the key is forgotten and the error is
   thrown again, so Laravel's exception handler reports it and renders it (a 500, or an
-  `HttpException`'s status) and Flashpi's retry dispatches the delivery again. When the cache fails
-  before the events go out, the error is a 500 and nothing is dispatched; when it fails writing
-  `processed`, the events went out, so the error is reported and the answer is still 204. A request
-  that dies without an exception while dispatching (a PHP fatal error such as the memory or time
-  limit, a worker killed by FPM's `request_terminate_timeout`, an OOM kill, a deploy) never forgets
-  its key, so `processing` has a lease of its own, 300 seconds
+  `HttpException`'s status) and Flashpi's retry dispatches the delivery again. When forgetting the
+  key fails too, that error is reported and the listener's error is still the one thrown; the
+  delivery stays `processing` until its lease ends (below), and Flashpi's next retry handles it.
+  When the cache fails before the events go out, the error is a 500 and nothing is dispatched; when
+  it fails writing `processed`, the events went out, so the error is reported and the answer is
+  still 204. A request that dies without an exception while dispatching (a PHP fatal error such as
+  the memory or time limit, a worker killed by FPM's `request_terminate_timeout`, an OOM kill, a
+  deploy) never forgets its key, so `processing` has a lease of its own, 300 seconds
   (`WebhookController::PROCESSING_LEASE`, **chosen while implementing**): with the whole TTL,
   Flashpi's retries (5 s, 5 min, 30 min, 2 h, 5 h, then every 10 h until 72 h after the first
   attempt) would get 409 for about 27.5 hours, and a TTL above about 62 hours would lose the

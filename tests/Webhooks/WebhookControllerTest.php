@@ -354,6 +354,36 @@ final class WebhookControllerTest extends WebhookTestCase
         self::assertSame(2, $calls);
     }
 
+    public function testKeepsTheListenersErrorWhenForgettingTheDeliveryFailsToo(): void
+    {
+        Exceptions::fake();
+        $this->useStore(new class extends ArrayStore {
+            public function forget($key): bool
+            {
+                throw new \RuntimeException('The cache is down');
+            }
+        });
+        $this->dispatcher()->listen(InvoiceAuthorized::class, static function (): void {
+            throw new \DomainException('Listener failed');
+        });
+
+        $this->deliver(Webhook::event('invoice.authorized'))->assertStatus(500);
+
+        Exceptions::assertReported(static fn(\DomainException $error): bool => $error->getMessage() === 'Listener failed');
+        Exceptions::assertReported(static fn(\RuntimeException $error): bool => $error->getMessage() === 'The cache is down');
+        // Not forgotten: the retries wait until its lease ends.
+        self::assertSame(WebhookController::PROCESSING, $this->cache('custom')->get(WebhookController::cacheKey(Webhook::ID)));
+
+        // The listener's error is the one thrown, for another delivery.
+        $this->withoutExceptionHandling();
+        try {
+            $this->deliver(Webhook::event('invoice.authorized', id: 'other'), 'other');
+            self::fail('No exception');
+        } catch (\DomainException $error) {
+            self::assertSame('Listener failed', $error->getMessage());
+        }
+    }
+
     public function testAnswers204WhenTheCacheFailsAfterTheEventsWentOut(): void
     {
         Exceptions::fake();

@@ -41,7 +41,8 @@ use Illuminate\Http\Response;
  * 4. It dispatches WebhookReceived, then the event of the type (InvoiceAuthorized, ...) when this
  *    version has one, remembers the delivery as processed and answers 204. When a listener
  *    throws, the webhook-id is forgotten and the error goes to Laravel's exception handler (a
- *    500): Flashpi's retry handles it again.
+ *    500): Flashpi's retry handles it again. When forgetting fails too, that error is reported
+ *    and the listener's is still the one thrown.
  *
  * Flashpi waits 10 seconds for the answer: listeners that take longer belong on the queue
  * (ShouldQueue).
@@ -119,7 +120,13 @@ final class WebhookController
                 $events->dispatch($typed);
             }
         } catch (\Throwable $error) {
-            $store->forget($key);
+            try {
+                $store->forget($key);
+            } catch (\Throwable $cacheError) {
+                // The listener's error is still the one Laravel reports and renders; the delivery
+                // stays `processing` until its lease ends, then Flashpi's next retry handles it.
+                $exceptions->report($cacheError);
+            }
 
             throw $error;
         }
