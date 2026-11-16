@@ -58,17 +58,19 @@ while implementing**: those wait for the owner's confirmation.
 
 - **Requirements.** `illuminate/console`, `illuminate/contracts`, `illuminate/http` and
   `illuminate/support`, the components the core uses, at `^12.71 || ^13.40`, and
-  `flashpi/flashpi-php` `^0.1`. As with the SDK's Guzzle floor, the lowest versions are the
-  oldest Composer installs with its audit on: every `laravel/framework` before 12.71.0, and 13.x
-  before 13.40.0, has a security advisory (the latest, PKSA-yxbx-3c9s-cjt9, reported 2026-11-13),
-  so `--prefer-lowest` cannot install anything older, and anything older would go untested. The
-  lowest versions pass the tests on PHP 8.2 and 8.5: Laravel 12.71.0 with Testbench 10.0.0, and
-  Laravel 13.40.0 with Testbench 11.0.0, both with PHPUnit 11.5.50 and Guzzle 7.15.2 (13.40.0
-  with Guzzle 8.3.0 too). The development requirements are Testbench `^10.0 || ^11.0` and PHPUnit
-  `^11.5.50 || ^12.5.8 || ^13.0`, the versions Testbench accepts. Guzzle, PSR-7 and Symfony
-  Console, which the code also uses (the Guzzle client under the SDK, a command's `#[AsCommand]`),
-  come with the SDK and with Laravel's components, which require them: `composer.json` does not
-  repeat their constraints, so they cannot drift from the SDK's and Laravel's.
+  `flashpi/flashpi-php` `^0.1`. As with the SDK's Guzzle floor, the lowest versions are the oldest
+  Composer installs with its audit on: every `laravel/framework` before 12.71.0, and 13.x before
+  13.40.0, has a security advisory (the latest, PKSA-yxbx-3c9s-cjt9, reported 2026-11-13), so
+  `--prefer-lowest` cannot install anything older, and anything older would go untested. The
+  READMEs give this floor (Laravel 12.71 or 13.40 and later) and what to do on an older release
+  (`composer update laravel/framework`, or `composer require -W`). The lowest versions pass the
+  tests on PHP 8.2 and 8.5: Laravel 12.71.0 with Testbench 10.0.0, and Laravel 13.40.0 with
+  Testbench 11.0.0, both with PHPUnit 11.5.50 and Guzzle 7.15.2 (13.40.0 with Guzzle 8.3.0 too).
+  The development requirements are Testbench `^10.0 || ^11.0` and PHPUnit `^11.5.50 || ^12.5.8 ||
+  ^13.0`, the versions Testbench accepts. Guzzle, PSR-7 and Symfony Console, which the code also
+  uses (the Guzzle client under the SDK, a command's `#[AsCommand]`), come with the SDK and with
+  Laravel's components, which require them: `composer.json` does not repeat their constraints, so
+  they cannot drift from the SDK's and Laravel's.
 - **Laravel's HTTP client, per request.** The SDK gets a Guzzle client whose handler sends each
   request through the handler stack of a new pending request of the HTTP client factory the
   container holds at that moment (`createPendingRequest()->buildHandlerStack()`), not one
