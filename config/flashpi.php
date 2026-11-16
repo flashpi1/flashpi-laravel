@@ -20,8 +20,8 @@ return [
 
     /*
      * Language of the API's messages: 'es' or 'en'. Error codes do not change. When it is not
-     * set, it follows the app's locale: 'es' when config('app.locale') is Spanish (es, es_EC,
-     * es-EC, ...), 'en' otherwise.
+     * set, it follows the app's locale: 'es' when config('app.locale') starts with 'es' (es,
+     * es_EC, es-EC, ...), 'en' otherwise.
      */
     'language' => env('FLASHPI_LANGUAGE'),
 

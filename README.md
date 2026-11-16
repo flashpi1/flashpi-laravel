@@ -66,8 +66,8 @@ Laravel deja de leer el `.env`, así que después de cambiarlo vuelve a ejecutar
 `php artisan config:cache`.
 
 **Idioma.** Con `FLASHPI_LANGUAGE`, los mensajes de error de la API llegan en ese idioma. Sin
-ella, llegan en español si `config('app.locale')` es español (`es`, `es_EC`, `es-EC`, ...) y en
-inglés en otro caso. Los `errorCode` no cambian con el idioma.
+ella, llegan en español si `config('app.locale')` empieza por `es` (`es`, `es_EC`, `es-EC`, ...)
+y en inglés en otro caso. Los `errorCode` no cambian con el idioma.
 
 ## Primeros pasos
 

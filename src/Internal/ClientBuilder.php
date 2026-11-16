@@ -52,8 +52,8 @@ final class ClientBuilder
     }
 
     /**
-     * The language of the API's messages: FLASHPI_LANGUAGE when set; otherwise 'es' when the
-     * app's locale is Spanish (es, es_EC, es-EC, ...), 'en' for any other.
+     * The language of the API's messages: FLASHPI_LANGUAGE when set; otherwise 'es' when
+     * config('app.locale') starts with 'es' (es, es_EC, es-EC, ...), 'en' for any other.
      *
      * The locale is read when the client is built (the first time the container resolves it).
      * A request's own `language` option still wins.
@@ -74,7 +74,7 @@ final class ClientBuilder
         }
         $locale = $config->get('app.locale');
 
-        return \is_string($locale) && preg_match('/\Aes(?:[-_]|\z)/i', trim($locale)) === 1 ? 'es' : 'en';
+        return \is_string($locale) && str_starts_with(strtolower(trim($locale)), 'es') ? 'es' : 'en';
     }
 
     /**

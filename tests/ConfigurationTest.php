@@ -221,7 +221,9 @@ final class ConfigurationTest extends TestCase
         yield 'Spanish in capitals' => [null, 'ES', 'es'];
         yield 'English' => [null, 'en', 'en'];
         yield 'Portuguese' => [null, 'pt_BR', 'en'];
-        yield 'Estonian (ISO 639-2)' => [null, 'est', 'en'];
+        // The owner's rule: a locale that starts with es.
+        yield 'Spanish with an encoding' => [null, 'es.UTF-8', 'es'];
+        yield 'Spanish of Ecuador with an encoding' => [null, 'es_EC.UTF-8', 'es'];
     }
 
     #[DataProvider('languages')]

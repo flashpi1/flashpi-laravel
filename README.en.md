@@ -66,8 +66,8 @@ The package reads `config('flashpi...')` only, never the environment: with
 `php artisan config:cache` again.
 
 **Language.** With `FLASHPI_LANGUAGE`, the API's error messages come in that language. Without
-it, they come in Spanish when `config('app.locale')` is Spanish (`es`, `es_EC`, `es-EC`, ...)
-and in English otherwise. The `errorCode`s do not change with the language.
+it, they come in Spanish when `config('app.locale')` starts with `es` (`es`, `es_EC`, `es-EC`,
+...) and in English otherwise. The `errorCode`s do not change with the language.
 
 ## Getting started
 

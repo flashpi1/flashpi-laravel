@@ -40,8 +40,8 @@ while implementing**: those wait for the owner's confirmation.
   `Flashpi::fake()`. The SDK sets `allow_redirects: false`, `http_errors: false` and its timeouts
   on every request itself, so that client is supported; downloads (RIDE, XML) and retries are
   tested through it.
-- **Language.** `FLASHPI_LANGUAGE` when set; otherwise `es` when `app.locale` is Spanish, `en`
-  otherwise.
+- **Language.** `FLASHPI_LANGUAGE` when set; otherwise `es` when `app.locale` starts with `es`,
+  `en` otherwise.
 - **Commands.** `flashpi:install` publishes the configuration and prints the variables to add to
   .env; `flashpi:check` tests the key (its environment and the API's status); `flashpi:webhook`
   registers the app's endpoint (`APP_URL` plus the route's path, or `--url`) through the SDK's
@@ -112,11 +112,11 @@ while implementing**: those wait for the owner's confirmation.
   key's prefix. A test checks that `src/` calls no `env()` or `getenv()` and reads neither `$_ENV`
   nor `$_SERVER`.
 - **The language.** `FLASHPI_LANGUAGE` must be `es` or `en` (in any letter case), the SDK's
-  `Language` type: anything else (`es_EC`, `fr`) throws when the client is built rather than
-  being sent. A locale counts as Spanish when it is `es` alone or followed by `-` or `_`, so
-  `est` (Estonian, ISO 639-2) does not. The locale is read when the client is built: in a queue
-  worker or under Octane, the locale of that moment stays. A request's `language` option still
-  wins.
+  `Language` type: anything else (`es_EC`, `fr`) throws when the client is built rather than being
+  sent. Without it, `app.locale` gives `es` when it starts with `es` in any letter case, the
+  owner's rule as written (`es`, `es_EC`, `es-EC`, `es_EC.UTF-8`). The locale is read when the
+  client is built: in a queue worker or under Octane, the locale of that moment stays. A request's
+  `language` option still wins.
 - **The facade.** `Flashpi\Laravel\Facades\Flashpi` returns any public property of the client
   for the method of its name, so a resource the SDK adds works at once (a test then requires its
   `@method` tag). A resource called with arguments, a name the client lacks and its private parts
