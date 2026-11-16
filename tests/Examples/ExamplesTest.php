@@ -241,36 +241,65 @@ final class ExamplesTest extends TestCase
     /**
      * Runs the README's test class with PHPUnit, in a process of its own, from a copy named after
      * the class (PHPUnit loads a test file by its class's name).
+     *
+     * Its configuration is as strict as phpunit.xml.dist, with the same rule for deprecations: the
+     * example's own code is the source, so a deprecation it causes fails the run, and one that
+     * vendor code triggers in vendor code is ignored (Testbench 10.0's config/database.php uses
+     * PDO::MYSQL_ATTR_SSL_CA, deprecated in PHP 8.5, whenever pdo_mysql is loaded).
      */
     private function runTestClass(string $path, string $class): void
     {
         $directory = sys_get_temp_dir() . '/flashpi-laravel-example-' . bin2hex(random_bytes(6));
         mkdir($directory);
         $file = "{$directory}/{$class}.php";
+        $configuration = "{$directory}/phpunit.xml";
         copy($path, $file);
+        file_put_contents($configuration, self::configuration($directory));
         try {
             $command = [
                 \PHP_BINARY,
                 self::ROOT . '/vendor/bin/phpunit',
-                '--no-configuration',
-                '--bootstrap',
-                __DIR__ . '/bootstrap.php',
-                '--fail-on-warning',
-                '--fail-on-risky',
-                '--fail-on-deprecation',
-                '--fail-on-notice',
+                '--configuration',
+                $configuration,
                 '--colors=never',
                 $file,
             ];
             exec(implode(' ', array_map('escapeshellarg', $command)) . ' 2>&1', $output, $status);
         } finally {
-            unlink($file);
+            // The copy, its configuration and PHPUnit's result cache (.phpunit.result.cache).
+            foreach (array_diff(scandir($directory) ?: [], ['.', '..']) as $name) {
+                unlink("{$directory}/{$name}");
+            }
             rmdir($directory);
         }
         $output = implode("\n", $output);
 
         self::assertSame(0, $status, $output);
         self::assertMatchesRegularExpression('/^OK \(1 test, [1-9]\d* assertions?\)$/m', $output);
+    }
+
+    /**
+     * The PHPUnit configuration of a README test class copied to $directory.
+     */
+    private static function configuration(string $directory): string
+    {
+        $bootstrap = htmlspecialchars(__DIR__ . '/bootstrap.php', \ENT_XML1 | \ENT_QUOTES);
+        $source = htmlspecialchars($directory, \ENT_XML1 | \ENT_QUOTES);
+
+        return <<<XML
+            <?xml version="1.0" encoding="UTF-8"?>
+            <phpunit bootstrap="{$bootstrap}"
+                failOnDeprecation="true" failOnNotice="true" failOnRisky="true" failOnWarning="true">
+              <source ignoreIndirectDeprecations="true">
+                <include>
+                  <directory>{$source}</directory>
+                </include>
+              </source>
+              <php>
+                <ini name="error_reporting" value="-1"/>
+              </php>
+            </phpunit>
+            XML;
     }
 
     /**
