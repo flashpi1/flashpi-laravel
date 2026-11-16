@@ -344,9 +344,11 @@ Flashpi (`replay`) keep their `webhook-id`: within the 24 hours they are dropped
 
 An endpoint in `thin` mode (registered with `php artisan flashpi:webhook --thin`) sends only the
 `id`, `type`, `environment` and date: `$event->data` is `null` and `$event->isThin()` is `true`.
-`$event->fetch()` asks the API for the whole event (`GET /v1/events/{id}`), once per event and
-only when you call it; with a full payload it returns the payload without any request, so your
-listeners work the same in both modes. It needs a `FLASHPI_API_KEY` of the event's environment.
+`$event->fetch()` asks the API for the whole event (`GET /v1/events/{id}`) only when you call
+it, and once per event object: `WebhookReceived` and the typed event, and each queued listener
+(which gets its own copy), read it separately; with a full payload it returns the payload
+without any request, so your listeners work the same in both modes. It needs a `FLASHPI_API_KEY`
+of the event's environment.
 
 ### Your own route
 

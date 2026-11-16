@@ -347,10 +347,11 @@ también se descartan.
 
 Un endpoint en modo `thin` (registrado con `php artisan flashpi:webhook --thin`) envía solo el
 `id`, el `type`, el `environment` y la fecha: `$event->data` es `null` y `$event->isThin()` es
-`true`. `$event->fetch()` pide el evento completo a la API (`GET /v1/events/{id}`), una sola vez
-por evento y solo cuando lo llamas; con un payload completo, devuelve el payload sin hacer
-ninguna petición, así que tus listeners funcionan igual en ambos modos. Necesita una
-`FLASHPI_API_KEY` del mismo ambiente que el evento.
+`true`. `$event->fetch()` pide el evento completo a la API (`GET /v1/events/{id}`) solo cuando
+lo llamas, y una sola vez por objeto de evento: `WebhookReceived` y la clase del tipo, y cada
+listener encolado (que recibe su propia copia), lo piden por separado; con un payload completo,
+devuelve el payload sin hacer ninguna petición, así que tus listeners funcionan igual en ambos
+modos. Necesita una `FLASHPI_API_KEY` del mismo ambiente que el evento.
 
 ### Tu propia ruta
 
