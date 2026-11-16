@@ -15,7 +15,7 @@ use Illuminate\Support\ServiceProvider;
  * - The configuration, config/flashpi.php, merged with the app's own copy and published with
  *   `php artisan vendor:publish --tag=flashpi-config`.
  * - Flashpi\Flashpi as a singleton built from that configuration, with Laravel's HTTP client
- *   underneath (see Internal\LaravelHttpClient): inject it.
+ *   underneath (see Internal\LaravelHttpClient): inject it, or use the Flashpi facade.
  */
 final class FlashpiServiceProvider extends ServiceProvider
 {

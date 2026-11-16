@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Flashpi\Laravel\Tests;
 
 use Flashpi\Flashpi;
+use Flashpi\Laravel\Facades\Flashpi as FlashpiFacade;
 use Flashpi\Laravel\FlashpiServiceProvider;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
@@ -81,6 +82,7 @@ final class ServiceProviderTest extends TestCase
         self::assertInstanceOf(Flashpi::class, $first);
         self::assertSame($first, $this->app?->make(Flashpi::class));
         self::assertSame('test', $first->environment);
+        self::assertSame($first, FlashpiFacade::getFacadeRoot());
     }
 
     public function testComposerRegistersTheProviderForPackageDiscovery(): void
