@@ -44,8 +44,10 @@ composer validate --strict && composer cs && composer analyse && composer test
 - Coverage: install pcov and run `php -d pcov.directory=. vendor/bin/phpunit --coverage-text`.
   pcov only measures `src/` unless told otherwise; `pcov.directory=.` counts the scripts too. CI
   fails below 95 % of lines.
-- CI runs the tests on PHP 8.2 to 8.5 with Laravel 12, and on PHP 8.3 to 8.5 with Laravel 13 (which
-  needs PHP 8.3), and on the oldest versions `composer.json` allows with each Laravel major:
+- CI runs the tests on PHP 8.2 to 8.5 with Laravel 12 and Guzzle 7, and on PHP 8.3 to 8.5 with
+  Laravel 13 (which needs PHP 8.3) with Guzzle 7 and with Guzzle 8: `composer update` resolves
+  Guzzle 8 with Laravel 13, and `composer update --with "guzzlehttp/guzzle:^7.15.2"` Guzzle 7. It
+  also runs them on the oldest versions `composer.json` allows with each Laravel major:
   `composer update --prefer-lowest --prefer-stable --with "orchestra/testbench:^10.0"` installs
   Laravel 12.71.0, and `... --with "orchestra/testbench:^11.0"` Laravel 13.40.0, both with Guzzle
   7; add `--with "guzzlehttp/guzzle:^8.3"` to the second for Laravel 13 with Guzzle 8.3.0, which

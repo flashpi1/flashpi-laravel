@@ -419,9 +419,19 @@ while implementing**: those wait for the owner's confirmation.
   (checkout v7.0.1, setup-php 2.40.0):
   - `verify` (PHP 8.5, Laravel 13): `composer validate --strict`, `composer readme:check`,
     PHP-CS-Fixer, PHPStan, and the tests with pcov, failing below 95 % of lines.
-  - `laravel`: PHP 8.2 to 8.5 with Laravel 12 and 13, without PHP 8.2 with Laravel 13 (seven
-    jobs), each with PHPStan and the tests. PHPStan runs in every job because Laravel's types
-    differ between majors (the one ignored report in `phpstan.neon.dist` is one of them).
+  - `laravel`: PHP 8.2 to 8.5 with Laravel 12 and 13, without PHP 8.2 with Laravel 13, and with
+    Guzzle 7 and 8 (`--with "guzzlehttp/guzzle:^7.15.2"` or `"^8.3"`), without Guzzle 8 with
+    Laravel 12, which allows Guzzle 7 only: ten jobs, Laravel 12 with Guzzle 7 and every Laravel
+    13 row with Guzzle 7 and with Guzzle 8. Left alone, the newest Laravel 13 always resolves
+    Guzzle 8, but an app whose other dependencies hold Guzzle 7 runs Laravel 13 with Guzzle 7, and
+    the package uses Guzzle's classes itself (`Client`, `Utils::chooseHandler()`, `TransferStats`,
+    the promises), so both majors are tested as flashpi-php's matrix tests them. Each job runs
+    PHPStan over everything, `tests/` included (it reports nothing with Guzzle 7, so the package
+    needs no src-only run as flashpi-php does), and the tests. PHPStan runs in every job because
+    Laravel's and Guzzle's types differ between majors (the one ignored report in
+    `phpstan.neon.dist` is one of Laravel's; Guzzle 8's promises are generic and Guzzle 7's are
+    not, which is why the handler of `LaravelHttpClient` narrows its answer with `assert()` instead
+    of a PHPDoc type).
   - `lowest`: the oldest versions `composer.json` allows with each Laravel major, on its lowest
     PHP and on PHP 8.5 (Laravel 12 on 8.2 and 8.5, Laravel 13 on 8.3 and 8.5), with Guzzle 7
     (`--with "guzzlehttp/guzzle:^7.15.2"`), and a fifth job with Laravel 13 and Guzzle 8 on PHP
