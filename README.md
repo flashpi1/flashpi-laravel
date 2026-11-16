@@ -19,7 +19,7 @@ electrónica del SRI de Ecuador.
 - Laravel 12.71 o superior, o 13.40 o superior: todas las versiones anteriores tienen avisos de
   seguridad publicados. Si tu app usa una 12.x o 13.x más antigua, `composer require` falla con
   un conflicto en `illuminate/*`; actualiza Laravel primero
-  (`composer update laravel/framework`) o agrega `-W`
+  (`composer update laravel/framework -W`) o agrega `-W` a la instalación
   (`composer require flashpi/flashpi-laravel -W`).
 - PHP 8.2 o superior (Laravel 13 necesita PHP 8.3).
 - El paquete instala [flashpi/flashpi-php](https://github.com/flashpi1/flashpi-php), el SDK

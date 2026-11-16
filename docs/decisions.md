@@ -63,15 +63,18 @@ while implementing**: those wait for the owner's confirmation.
   13.40.0, has a security advisory (the latest, PKSA-yxbx-3c9s-cjt9, reported 2026-11-13), so
   `--prefer-lowest` cannot install anything older, and anything older would go untested. The
   READMEs give this floor (Laravel 12.71 or 13.40 and later) and what to do on an older release
-  (`composer update laravel/framework`, or `composer require -W`). The lowest versions pass the
-  tests on PHP 8.2 and 8.5: Laravel 12.71.0 with Testbench 10.0.0, and Laravel 13.40.0 with
-  Testbench 11.0.0, both with PHPUnit 11.5.50 and Guzzle 7.15.2 (13.40.0 with Guzzle 8.3.0 too,
-  which a job of CI keeps checking, since `--prefer-lowest` alone always picks Guzzle 7). The
-  development requirements are Testbench `^10.0 || ^11.0` and PHPUnit `^11.5.50 || ^12.5.8 ||
-  ^13.0`, the versions Testbench accepts. Guzzle, PSR-7 and Symfony Console, which the code also
-  uses (the Guzzle client under the SDK, a command's `#[AsCommand]`), come with the SDK and with
-  Laravel's components, which require them: `composer.json` does not repeat their constraints, so
-  they cannot drift from the SDK's and Laravel's.
+  (`composer update laravel/framework -W`, or `composer require -W`): the newer Laravel releases
+  need newer versions of locked dependencies (such as `league/commonmark` ^2.8.1 for 12.71 and
+  `monolog/monolog` ^3.10 for 13.40), which an update without `-W` cannot move, and `-W` is the flag
+  Composer's own error suggests. The lowest versions pass the tests on PHP 8.2 and 8.5: Laravel
+  12.71.0 with Testbench 10.0.0, and Laravel 13.40.0 with Testbench 11.0.0, both with PHPUnit
+  11.5.50 and Guzzle 7.15.2 (13.40.0 with Guzzle 8.3.0 too, which a job of CI keeps checking, since
+  `--prefer-lowest` alone always picks Guzzle 7). The development requirements are Testbench
+  `^10.0 || ^11.0` and PHPUnit `^11.5.50 || ^12.5.8 || ^13.0`, the versions Testbench accepts.
+  Guzzle, PSR-7 and Symfony Console, which the code also uses (the Guzzle client under the SDK, a
+  command's `#[AsCommand]`), come with the SDK and with Laravel's components, which require them:
+  `composer.json` does not repeat their constraints, so they cannot drift from the SDK's and
+  Laravel's.
 - **Laravel's HTTP client, per request.** The SDK gets a Guzzle client whose handler sends each
   request through the handler stack of a new pending request of the HTTP client factory the
   container holds at that moment (`createPendingRequest()->buildHandlerStack()`), not one
