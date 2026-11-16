@@ -385,7 +385,7 @@ final class IssueInvoiceTest extends TestCase
             'api.flashpi.com.ec/v1/invoices' => Http::response(['id' => 'doc_1', 'status' => 'processing'], 202),
         ]);
 
-        $order = new Order(['id' => 42]);
+        $order = (new Order())->forceFill(['id' => 42]);
         $invoice = Flashpi::invoices()->create($order->toFlashpiInvoice()); // o tu código, como IssueInvoice
 
         $this->assertSame('processing', $invoice['status']);
