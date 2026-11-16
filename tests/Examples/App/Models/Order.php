@@ -21,8 +21,13 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class Order extends Model
 {
-    /** @var list<string> */
-    protected $guarded = [];
+    /**
+     * Guarded as an app's model is: the README examples that fill an attribute the model does not
+     * list fail, as they would in the reader's app.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['flashpi_document_id', 'access_key', 'email_bounced'];
 
     /** @var bool */
     public $timestamps = false;

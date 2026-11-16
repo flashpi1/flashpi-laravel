@@ -6,6 +6,7 @@ namespace Tests;
 
 use Flashpi\Laravel\FlashpiServiceProvider;
 use Illuminate\Contracts\Config\Repository;
+use Illuminate\Database\Eloquent\Model;
 use Orchestra\Testbench\TestCase as Testbench;
 
 /**
@@ -27,5 +28,8 @@ abstract class TestCase extends Testbench
     protected function defineEnvironment($app): void
     {
         $app->make(Repository::class)->set('flashpi.api_key', 'fp_test_' . bin2hex(random_bytes(24)));
+        // An attribute the model does not accept throws instead of being dropped, so an example
+        // that fills one fails here rather than passing without it.
+        Model::preventSilentlyDiscardingAttributes();
     }
 }

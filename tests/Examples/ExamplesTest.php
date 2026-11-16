@@ -86,7 +86,7 @@ final class ExamplesTest extends TestCase
             $table->string('access_key')->nullable();
             $table->boolean('email_bounced')->default(false);
         });
-        Order::query()->create(['id' => self::ORDER_ID, 'flashpi_document_id' => Reader::DOCUMENT_ID]);
+        Order::query()->forceCreate(['id' => self::ORDER_ID, 'flashpi_document_id' => Reader::DOCUMENT_ID]);
         $this->database()->enableQueryLog();
         $this->database()->flushQueryLog();
         $this->events = [];

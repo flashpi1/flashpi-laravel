@@ -371,6 +371,13 @@ while implementing**: those wait for the owner's confirmation.
   PHPDoc only). The job uses the order's id as the `idempotencyKey`, so a retried job never
   issues twice. The testing section tells apps to set a fake `fp_test_` key and
   `FLASHPI_MAX_RETRIES=0` in `phpunit.xml`, since the SDK waits between retries of a faked 5xx.
+  Its test builds the order with `forceFill(['id' => 42])`, which works on any model whatever its
+  guarding: `new Order(['id' => 42])` throws `MassAssignmentException` on a model made by
+  `make:model` (no `$fillable`) and drops the id on one whose `$fillable` lacks it. The stand-in
+  model (`tests/Examples/App/Models/Order.php`) guards as an app's would, listing in `$fillable`
+  the columns the examples fill and not `id`, and the stand-in `Tests\TestCase` calls
+  `Model::preventSilentlyDiscardingAttributes()`, so an example that mass-assigns what a real
+  model refuses fails instead of passing on a model that accepts everything.
 - **The README examples are checked and run.** `scripts/readme.php` and `scripts/Readme/` are
   flashpi-php's, ported: every `php` block becomes a file of `tests/Examples/Readme/`
   (`composer readme:generate`; `composer readme:check` and a test fail when they differ), excluded
