@@ -244,7 +244,10 @@ de nuevo. Ejecutado otra vez, el comando muestra el estado del endpoint.
 Flashpi tiene que llegar a la URL desde internet: el comando rechaza una URL que no es https o
 que es local (`localhost`, `*.test`, `10.0.0.1`, ...). En desarrollo, usa un túnel (ngrok,
 Expose, Cloudflare Tunnel) y pasa su URL:
-`php artisan flashpi:webhook --url=https://abc123.ngrok.app/flashpi/webhook`.
+`php artisan flashpi:webhook --url=https://abc123.ngrok.app/flashpi/webhook`. El comando revisa
+el host con una lista de nombres y rangos, sin consultar el DNS: si rechaza un host que sí es
+público, pasa `--force`. La URL igual tiene que ser https, y la API de Flashpi la vuelve a
+revisar.
 
 Opciones: `--event=invoice.authorized` (repetible) para recibir solo esos eventos, y `--thin`
 para recibir payloads thin. `--event` y `--thin` se aplican solo al crear el endpoint: si la URL
@@ -429,7 +432,7 @@ Event::dispatch(new InvoiceAuthorized([
 | ------------------------- | -------------------------------------------------------------------------------------------- |
 | `php artisan flashpi:install` | Publica `config/flashpi.php` (`--force` lo reemplaza) y muestra las variables que faltan en el `.env`. |
 | `php artisan flashpi:check`   | Prueba la clave: su ambiente (pruebas o producción), el estado de la API y si la API la acepta. |
-| `php artisan flashpi:webhook` | Registra el endpoint de webhooks de la app y muestra su secreto una vez. Opciones: `--url`, `--event`, `--thin`, `--verify`. |
+| `php artisan flashpi:webhook` | Registra el endpoint de webhooks de la app y muestra su secreto una vez. Opciones: `--url`, `--event`, `--thin`, `--verify`, `--force`. |
 
 ## Errores
 

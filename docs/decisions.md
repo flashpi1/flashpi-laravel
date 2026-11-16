@@ -166,7 +166,9 @@ while implementing**: those wait for the owner's confirmation.
   that is not https and one whose host cannot be public: an IP address outside RFC 6890's global
   ranges, a name without a dot, and names under `localhost`, `test`, `example`, `invalid`, `local`,
   `internal`, `home.arpa`, `lan`, `localdomain`, `corp`, `intranet` and `private`. There is no
-  option to override it and no DNS lookup. It then looks for an endpoint with exactly that URL
+  DNS lookup. `--force` skips the host check, never the https one, for a public host the list
+  gets wrong (the owner's answer, below): Flashpi's API refuses a URL that is not public HTTPS
+  (`url_not_allowed`) on its own. It then looks for an endpoint with exactly that URL
   among the key's (every page): an active one is reported (with its payload mode), a disabled one
   is a warning, and one waiting for verification gets its challenge sent again with `--verify`. The
   command never updates an endpoint: `--event` and `--thin` apply when it creates one, and when the
