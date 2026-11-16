@@ -1,0 +1,46 @@
+# PHPStan at the highest level over the package, its configuration, its tests and its scripts,
+# with the flags of flashpi-php (see its phpstan.neon.dist and docs/decisions.md).
+#
+# Besides `level: max`:
+# - bleedingEdge makes array shapes sealed: an array with a key the shape does not declare (a typo
+#   in a request body) is an error.
+# - treatPhpDocTypesAsCertain is off: the package checks at run time what the configuration holds
+#   (strings from .env) even where its PHPDoc already narrows the type.
+# - The other flags turn on checks that `max` leaves off: uninitialized properties, benevolent
+#   unions (`array-key`), callables without a signature, possibly missing array offsets, @var tags
+#   that lie or widen a type, and conditions that are always true.
+#
+# No Larastan: see docs/decisions.md.
+includes:
+  - vendor/phpstan/phpstan/conf/bleedingEdge.neon
+
+parameters:
+  level: max
+  paths:
+    - config
+    - scripts
+    - src
+    - tests
+  tmpDir: .phpstan.cache
+  # PHPUnit builds a test's state in setUp(), not in its constructor.
+  additionalConstructors:
+    - PHPUnit\Framework\TestCase::setUp
+  treatPhpDocTypesAsCertain: false
+  checkUninitializedProperties: true
+  checkBenevolentUnionTypes: true
+  checkMissingCallableSignature: true
+  checkTooWideReturnTypesInProtectedAndPublicMethods: true
+  checkDynamicProperties: true
+  reportAlwaysTrueInLastCondition: true
+  reportAnyTypeWideningInVarTag: true
+  reportPossiblyNonexistentConstantArrayOffset: true
+  reportPossiblyNonexistentGeneralArrayOffset: true
+  reportWrongPhpDocTypeInVarTag: true
+  ignoreErrors:
+    # ClientBuilder::resolve() makes the client through the container, which runs build() and
+    # its FlashpiException. Laravel 12's container declares BindingResolutionException only (so
+    # the tag is reported as unused there); Laravel 13's declares nothing.
+    - identifier: throws.unusedType
+      path: src/Internal/ClientBuilder.php
+      count: 1
+      reportUnmatched: false
