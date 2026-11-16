@@ -268,7 +268,7 @@ final class ConfigurationTest extends TestCase
             self::fail('The client was built');
         } catch (FlashpiException $error) {
             self::assertStringStartsWith($message, $error->getMessage());
-            // The message names the setting, never its value.
+            // The message never shows the API key.
             self::assertStringNotContainsString($this->apiKey, $error->getMessage());
         }
     }

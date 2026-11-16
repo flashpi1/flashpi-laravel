@@ -465,9 +465,11 @@ try {
 | `ConnectionException`          | —      | sin respuesta (red); `TimeoutException` si se agotó el plazo |
 
 Todas derivan de `FlashpiException`, que también recibes cuando falta la configuración: sin
-`FLASHPI_API_KEY`, la primera vez que pides el cliente; con un valor inválido (por ejemplo
-`FLASHPI_TIMEOUT=rápido`), con el nombre de la variable y nunca su valor. Los reintentos y la
-idempotencia funcionan como en el
+`FLASHPI_API_KEY`, la primera vez que pides el cliente; con un valor que no se puede convertir
+(por ejemplo `FLASHPI_TIMEOUT=rápido` o `FLASHPI_LANGUAGE=fr`), con el nombre de la variable y
+nunca su valor. Los rangos, la URL y el prefijo de la clave los revisa el SDK, que nombra su
+propio parámetro (`timeout`, `maxRetries`, `baseUrl`) y nunca muestra la clave. Los reintentos
+y la idempotencia funcionan como en el
 [README del SDK](https://github.com/flashpi1/flashpi-php/blob/main/README.md#reintentos-e-idempotencia).
 
 ## Seguridad

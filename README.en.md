@@ -461,9 +461,12 @@ try {
 | `ConnectionException`          | —      | no answer (network); `TimeoutException` when time ran out    |
 
 They all extend `FlashpiException`, which you also get when the configuration is missing:
-without `FLASHPI_API_KEY`, the first time you ask for the client; with a bad value (such as
-`FLASHPI_TIMEOUT=fast`), naming the variable and never its value. Retries and idempotency work
-as in the [SDK's README](https://github.com/flashpi1/flashpi-php/blob/main/README.en.md#retries-and-idempotency).
+without `FLASHPI_API_KEY`, the first time you ask for the client; with a value that cannot be
+converted (such as `FLASHPI_TIMEOUT=fast` or `FLASHPI_LANGUAGE=fr`), naming the variable and
+never its value. The SDK checks the ranges, the URL and the key's prefix, naming its own
+parameter (`timeout`, `maxRetries`, `baseUrl`), and never shows the key. Retries and idempotency
+work as in the
+[SDK's README](https://github.com/flashpi1/flashpi-php/blob/main/README.en.md#retries-and-idempotency).
 
 ## Security
 
