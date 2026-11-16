@@ -1,0 +1,53 @@
+{
+  "name": "flashpi/flashpi-laravel",
+  "description": "The official Laravel package for Flashpi, the electronic invoicing API for Ecuador's SRI.",
+  "type": "library",
+  "license": "MIT",
+  "keywords": [
+    "flashpi",
+    "laravel",
+    "sri",
+    "ecuador",
+    "electronic-invoicing",
+    "facturacion-electronica",
+    "invoice",
+    "webhooks"
+  ],
+  "homepage": "https://flashpi.com.ec",
+  "authors": [
+    {
+      "name": "SIGNIADIGITAL S.A.",
+      "homepage": "https://flashpi.com.ec"
+    }
+  ],
+  "support": {
+    "issues": "https://github.com/flashpi1/flashpi-laravel/issues",
+    "source": "https://github.com/flashpi1/flashpi-laravel",
+    "docs": "https://flashpi.com.ec/docs/sdks/"
+  },
+  "require": {
+    "php": "^8.2",
+    "flashpi/flashpi-php": "^0.1",
+    "illuminate/support": "^12.0 || ^13.0"
+  },
+  "require-dev": {
+    "friendsofphp/php-cs-fixer": "^3.95",
+    "orchestra/testbench": "^10.0 || ^11.0",
+    "phpstan/phpstan": "^2.3"
+  },
+  "autoload": {
+    "psr-4": {
+      "Flashpi\\Laravel\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Flashpi\\Laravel\\Tests\\": "tests/"
+    }
+  },
+  "config": {
+    "sort-packages": true
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true
+}

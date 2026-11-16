@@ -1,0 +1,11 @@
+# Composer: a library does not commit its lock file; CI installs the newest and the lowest
+# versions composer.json allows.
+/vendor/
+/composer.lock
+
+# Tool caches
+/.phpunit.cache/
+/.php-cs-fixer.cache
+/.phpstan.cache/
+/build/
+/coverage/
