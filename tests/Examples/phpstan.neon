@@ -1,0 +1,17 @@
+# A consumer's PHPStan configuration for the README examples: level max with bleeding edge, and
+# none of the repository's own flags (phpstan.neon.dist), which change what a consumer sees.
+# tests/Examples/ExamplesTest.php runs it; the examples must pass as a reader's own code would.
+includes:
+  - ../../vendor/phpstan/phpstan/conf/bleedingEdge.neon
+
+parameters:
+  level: max
+  paths:
+    - Readme
+  scanDirectories:
+    - ../../src
+  scanFiles:
+    - App/Models/Order.php
+    - App/TestCase.php
+    - Reader.php
+  tmpDir: ../../.phpstan.cache/examples

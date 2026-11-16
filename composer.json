@@ -28,12 +28,18 @@
   "require": {
     "php": "^8.2",
     "flashpi/flashpi-php": "^0.1",
-    "illuminate/support": "^12.0 || ^13.0"
+    "illuminate/console": "^12.71 || ^13.40",
+    "illuminate/container": "^12.71 || ^13.40",
+    "illuminate/contracts": "^12.71 || ^13.40",
+    "illuminate/http": "^12.71 || ^13.40",
+    "illuminate/routing": "^12.71 || ^13.40",
+    "illuminate/support": "^12.71 || ^13.40"
   },
   "require-dev": {
     "friendsofphp/php-cs-fixer": "^3.95",
     "orchestra/testbench": "^10.0 || ^11.0",
-    "phpstan/phpstan": "^2.3"
+    "phpstan/phpstan": "^2.3",
+    "phpunit/phpunit": "^11.5.50 || ^12.5.8 || ^13.0"
   },
   "autoload": {
     "psr-4": {
@@ -42,12 +48,47 @@
   },
   "autoload-dev": {
     "psr-4": {
+      "Flashpi\\Laravel\\Scripts\\": "scripts/",
       "Flashpi\\Laravel\\Tests\\": "tests/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Flashpi\\Laravel\\FlashpiServiceProvider"
+      ]
     }
   },
   "config": {
     "sort-packages": true
   },
   "minimum-stability": "stable",
-  "prefer-stable": true
+  "prefer-stable": true,
+  "scripts": {
+    "analyse": "phpstan analyse --memory-limit=1G",
+    "cs": "php-cs-fixer check --diff",
+    "cs:fix": "php-cs-fixer fix",
+    "package:check": [
+      "@php -r \"is_dir('build') || mkdir('build');\"",
+      "git archive --format=tar --prefix=flashpi-laravel/ -o build/package.tar HEAD",
+      "@php scripts/package_check.php build/package.tar"
+    ],
+    "readme:check": "@php scripts/readme.php check",
+    "readme:generate": "@php scripts/readme.php generate",
+    "test": "phpunit",
+    "test:live": [
+      "Composer\\Config::disableProcessTimeout",
+      "phpunit --group live"
+    ]
+  },
+  "scripts-descriptions": {
+    "analyse": "Runs PHPStan at the highest level.",
+    "cs": "Checks the code style (PER-CS 2.0).",
+    "cs:fix": "Fixes the code style.",
+    "package:check": "Checks what Composer would install from the archive of HEAD (commit first).",
+    "readme:check": "Fails when tests/Examples/Readme does not match the READMEs.",
+    "readme:generate": "Rewrites tests/Examples/Readme from the php blocks of the READMEs.",
+    "test": "Runs the tests.",
+    "test:live": "Runs tests/Live against the real API in test mode (needs FLASHPI_TEST_API_KEY and FLASHPI_DEMO_ISSUER_ID)."
+  }
 }

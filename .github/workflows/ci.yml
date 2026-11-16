@@ -1,0 +1,214 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # By hand: gh workflow run ci.yml --ref <branch>. Such a run does not count for a pull
+  # request's required checks, which only take push and pull_request runs.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Third-party actions are pinned to full commit SHAs (the comment is the release). No lock file is
+# committed: each job resolves the versions composer.json allows for its PHP and Laravel major,
+# which Orchestra Testbench picks (10 for Laravel 12, 11 for Laravel 13).
+jobs:
+  verify:
+    name: Lint, analyse and test (PHP 8.5, Laravel 13)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up PHP with pcov
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.5'
+          coverage: pcov
+          tools: composer:v2
+
+      - name: Validate composer.json
+        run: composer validate --strict
+
+      - name: Install dependencies
+        run: |
+          composer update --no-interaction --no-progress --with "orchestra/testbench:^11.0"
+          composer show laravel/framework | grep -E '^(name|versions)'
+
+      - name: Check the README examples match the READMEs
+        run: composer readme:check
+
+      - name: Check the code style
+        run: vendor/bin/php-cs-fixer check --diff --show-progress=none
+
+      # The package, its configuration, the tests and the scripts. tests/Examples/ExamplesTest.php
+      # analyses the README examples with a consumer's configuration, as part of the tests.
+      - name: Analyse (PHPStan, level max)
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
+
+      - name: Test with coverage
+        run: php -d pcov.directory=. vendor/bin/phpunit --coverage-text --coverage-clover build/coverage.xml
+
+      - name: Require 95 % of lines covered
+        run: |
+          php -r '
+            $metrics = simplexml_load_file("build/coverage.xml")->project->metrics;
+            $covered = 100 * (int) $metrics["coveredstatements"] / max(1, (int) $metrics["statements"]);
+            printf("Lines covered: %.2f %%\n", $covered);
+            exit($covered < 95 ? 1 : 0);
+          '
+
+  # Laravel 13 allows Guzzle 7 and 8, and left alone always resolves Guzzle 8; an app whose other
+  # dependencies hold Guzzle 7 runs it with Guzzle 7, so each Laravel 13 row runs with both.
+  laravel:
+    name: PHP ${{ matrix.php }}, Laravel ${{ matrix.laravel }}, Guzzle ${{ matrix.guzzle }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4', '8.5']
+        laravel: ['12', '13']
+        guzzle: ['7', '8']
+        exclude:
+          # Laravel 13 needs PHP 8.3.
+          - php: '8.2'
+            laravel: '13'
+          # Laravel 12 allows Guzzle 7 only.
+          - laravel: '12'
+            guzzle: '8'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer:v2
+      - name: Install dependencies with Laravel ${{ matrix.laravel }} and Guzzle ${{ matrix.guzzle }}
+        env:
+          TESTBENCH: ${{ matrix.laravel == '12' && '^10.0' || '^11.0' }}
+          GUZZLE: ${{ matrix.guzzle == '7' && '^7.15.2' || '^8.3' }}
+        run: |
+          composer update --no-interaction --no-progress --with "orchestra/testbench:${TESTBENCH}" --with "guzzlehttp/guzzle:${GUZZLE}"
+          composer show | grep -E '^(laravel/framework|guzzlehttp/guzzle) '
+      - name: Analyse (PHPStan, level max)
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
+      - run: vendor/bin/phpunit
+
+  lowest:
+    name: Lowest dependencies (PHP ${{ matrix.php }}, Laravel ${{ matrix.laravel }}, Guzzle ${{ matrix.guzzle }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - php: '8.2'
+            laravel: '12'
+            guzzle: '7'
+          - php: '8.5'
+            laravel: '12'
+            guzzle: '7'
+          - php: '8.3'
+            laravel: '13'
+            guzzle: '7'
+          - php: '8.5'
+            laravel: '13'
+            guzzle: '7'
+          # Laravel 13 also allows Guzzle 8, which --prefer-lowest never picks on its own.
+          - php: '8.5'
+            laravel: '13'
+            guzzle: '8'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer:v2
+      # The oldest versions composer.json allows with each Laravel major: Laravel 12.71.0 with
+      # Testbench 10.0.0, and Laravel 13.40.0 with Testbench 11.0.0, with flashpi/flashpi-php 0.1.0
+      # and Guzzle 7.15.2 (psr7 2.13.0). Laravel 13 is also tested with Guzzle 8.3.0 (psr7 3.2.0,
+      # promises 3.1.0): left alone, --prefer-lowest always picks Guzzle 7, as in flashpi-php.
+      # Composer 2.9 and later skip versions with security advisories, here as for a user, so a
+      # new advisory would quietly move this job to newer ones: the log shows what was tested.
+      - name: Install the lowest dependencies with Laravel ${{ matrix.laravel }} and Guzzle ${{ matrix.guzzle }}
+        env:
+          TESTBENCH: ${{ matrix.laravel == '12' && '^10.0' || '^11.0' }}
+          GUZZLE: ${{ matrix.guzzle == '7' && '^7.15.2' || '^8.3' }}
+        run: |
+          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress --with "orchestra/testbench:${TESTBENCH}" --with "guzzlehttp/guzzle:${GUZZLE}"
+          composer show | grep -E '^(laravel/framework|orchestra/testbench|flashpi/flashpi-php|guzzlehttp/(guzzle|psr7|promises)|phpunit/phpunit) '
+      # The lowest symfony/polyfill-uuid installs paragonie/random_compat, whose random_bytes()
+      # has no return type, which the tests call, and the lowest Mockery (1.6.10, from Laravel and
+      # Testbench) types shouldReceive() too loosely for tests/ServiceProviderTest.php (fixed in
+      # 1.6.13): PHPStan checks the package and the scripts here.
+      - name: Analyse the package (PHPStan, level max)
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G config scripts src
+      - run: vendor/bin/phpunit
+
+  package:
+    name: Archive and install (PHP ${{ matrix.php }}, Laravel ${{ matrix.laravel }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - php: '8.2'
+            laravel: '12'
+          - php: '8.5'
+            laravel: '13'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer:v2
+
+      # What Composer installs from a tag: GitHub's archive of it, which git archive writes from
+      # the same .gitattributes.
+      - name: Check the archive
+        run: |
+          mkdir -p build
+          git archive --format=tar --prefix=flashpi-laravel/ -o build/package.tar HEAD
+          php scripts/package_check.php build/package.tar
+
+      - name: Install the archive in a new Laravel ${{ matrix.laravel }} app and use it
+        env:
+          LARAVEL: ${{ matrix.laravel }}
+        run: |
+          tar -xf build/package.tar -C "$RUNNER_TEMP"
+          app="${RUNNER_TEMP}/app"
+          composer create-project --no-interaction --no-progress --prefer-dist "laravel/laravel:^${LARAVEL}.0" "$app"
+          (
+            cd "$app"
+            composer config repositories.flashpi \
+              "{\"type\": \"path\", \"url\": \"${RUNNER_TEMP}/flashpi-laravel\", \"options\": {\"symlink\": false}}"
+            composer require --no-interaction --no-progress 'flashpi/flashpi-laravel:@dev'
+            php artisan flashpi:install --no-interaction
+            php artisan route:list --name=flashpi.webhook
+          )
+          php scripts/installed_check.php "$app"
+          (
+            cd "$app"
+            php artisan config:cache
+            php artisan route:cache
+            php artisan route:list --name=flashpi.webhook --json | grep -F '"uri":"flashpi\/webhook"'
+          )
