@@ -338,7 +338,12 @@ With several servers, use a cache store they share (database, redis, memcached o
 `FLASHPI_WEBHOOK_CACHE_STORE`. The `null` store is refused (every delivery fails with a 500 that
 names the variable); the `array` store forgets the deliveries after each request, so outside
 tests it drops nothing; and the `apc` store's `add()` is not atomic. Deliveries you replay from
-Flashpi (`replay`) keep their `webhook-id`: within the 24 hours they are dropped too.
+Flashpi (`replay`) keep their `webhook-id`: within the 24 hours they are dropped too. To have one
+handled again (for example after fixing a listener that did the wrong thing without throwing),
+forget it before replaying it:
+`Cache::store(config('flashpi.webhook.deduplication.store'))->forget(WebhookController::cacheKey($webhookId))`,
+with `Flashpi\Laravel\Http\Controllers\WebhookController` and the delivery's `webhook-id`, which is
+the event's id (`$event->webhookId`).
 
 ### Thin payloads
 

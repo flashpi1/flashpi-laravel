@@ -250,10 +250,11 @@ while implementing**: those wait for the owner's confirmation.
 - **Deduplication.** The cache key is `flashpi:webhook:` and the `webhook-id` header (Flashpi sends
   the event's id, a UUID), or the SHA-256 of an id longer than 128 characters or with characters
   other than letters, digits, `.`, `_`, `:` and `-`, which some stores refuse; a known key lets an
-  app forget a delivery to have it handled again. The key goes through two states with different
-  lifetimes: `Cache::add($key, 'processing', min(300, $ttl))` before dispatching (atomic in the
-  stores with an add() of their own: the file store's takes an exclusive file lock, but its files
-  are local, so with several servers it must be a store they share: database, redis, memcached,
+  app forget a delivery (documented in the READMEs, before a replay) to have it handled again. The
+  key goes through two states with different lifetimes:
+  `Cache::add($key, 'processing', min(300, $ttl))` before dispatching (atomic in the stores with an
+  add() of their own: the file store's takes an exclusive file lock, but its files are local, so
+  with several servers it must be a store they share: database, redis, memcached,
   dynamodb), then `put($key, 'processed', $ttl)` once the events went out. The null store
   (`CACHE_STORE=null`, or `FLASHPI_WEBHOOK_CACHE_STORE` naming one) is refused with a
   `FlashpiException`, a reported 500 that Flashpi retries, as for a missing secret: its `add()`
