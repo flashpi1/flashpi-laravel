@@ -18,6 +18,7 @@ use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Contracts\Cache\Store;
 use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Support\Facades\Cache as CacheFacade;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
@@ -269,6 +270,35 @@ final class WebhookControllerTest extends WebhookTestCase
         self::assertSame(WebhookController::PROCESSED, $this->cache()->get('flashpi:webhook:' . Webhook::ID));
         // Another event is handled.
         $this->deliver(Webhook::event('invoice.authorized', id: 'other'), 'other')->assertNoContent();
+        self::assertCount(4, $events);
+    }
+
+    /**
+     * The READMEs' recipe to have a delivery handled again: a replay from Flashpi keeps its
+     * webhook-id, so the app forgets it first, by the event's webhookId.
+     */
+    public function testHandlesAReplayAgainOnceItsKeyIsForgotten(): void
+    {
+        $this->config()->set('cache.stores.webhooks', ['driver' => 'array']);
+        $this->config()->set('flashpi.webhook.deduplication.store', 'webhooks');
+        $events = $this->record([WebhookReceived::class, InvoiceAuthorized::class]);
+        $event = Webhook::event('invoice.authorized');
+
+        $this->deliver($event)->assertNoContent();
+        $this->deliver($event)->assertNoContent();
+        self::assertCount(2, $events);
+
+        $received = $events[0];
+        self::assertInstanceOf(WebhookReceived::class, $received);
+        $webhookId = $received->webhookId;
+        $store = config('flashpi.webhook.deduplication.store');
+        self::assertIsString($store);
+        CacheFacade::store($store)->forget(WebhookController::cacheKey($webhookId));
+
+        $this->deliver($event)->assertNoContent();
+        self::assertCount(4, $events);
+        self::assertInstanceOf(InvoiceAuthorized::class, $events[3]);
+        $this->deliver($event)->assertNoContent();
         self::assertCount(4, $events);
     }
 
