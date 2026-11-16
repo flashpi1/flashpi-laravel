@@ -100,7 +100,7 @@ jobs:
       - run: vendor/bin/phpunit
 
   lowest:
-    name: Lowest dependencies (PHP ${{ matrix.php }}, Laravel ${{ matrix.laravel }})
+    name: Lowest dependencies (PHP ${{ matrix.php }}, Laravel ${{ matrix.laravel }}, Guzzle ${{ matrix.guzzle }})
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     strategy:
@@ -109,12 +109,20 @@ jobs:
         include:
           - php: '8.2'
             laravel: '12'
+            guzzle: '7'
           - php: '8.5'
             laravel: '12'
+            guzzle: '7'
           - php: '8.3'
             laravel: '13'
+            guzzle: '7'
           - php: '8.5'
             laravel: '13'
+            guzzle: '7'
+          # Laravel 13 also allows Guzzle 8, which --prefer-lowest never picks on its own.
+          - php: '8.5'
+            laravel: '13'
+            guzzle: '8'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -125,15 +133,18 @@ jobs:
           coverage: none
           tools: composer:v2
       # The oldest versions composer.json allows with each Laravel major: Laravel 12.71.0 with
-      # Testbench 10.0.0, and Laravel 13.40.0 with Testbench 11.0.0, with flashpi/flashpi-php
-      # 0.1.0. Composer 2.9 and later skip versions with security advisories, here as for a user,
-      # so a new advisory would quietly move this job to newer ones: the log shows what was tested.
-      - name: Install the lowest dependencies with Laravel ${{ matrix.laravel }}
+      # Testbench 10.0.0, and Laravel 13.40.0 with Testbench 11.0.0, with flashpi/flashpi-php 0.1.0
+      # and Guzzle 7.15.2 (psr7 2.13.0). Laravel 13 is also tested with Guzzle 8.3.0 (psr7 3.2.0,
+      # promises 3.1.0): left alone, --prefer-lowest always picks Guzzle 7, as in flashpi-php.
+      # Composer 2.9 and later skip versions with security advisories, here as for a user, so a
+      # new advisory would quietly move this job to newer ones: the log shows what was tested.
+      - name: Install the lowest dependencies with Laravel ${{ matrix.laravel }} and Guzzle ${{ matrix.guzzle }}
         env:
           TESTBENCH: ${{ matrix.laravel == '12' && '^10.0' || '^11.0' }}
+          GUZZLE: ${{ matrix.guzzle == '7' && '^7.15.2' || '^8.3' }}
         run: |
-          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress --with "orchestra/testbench:${TESTBENCH}"
-          composer show | grep -E '^(laravel/framework|orchestra/testbench|flashpi/flashpi-php|guzzlehttp/guzzle|phpunit/phpunit) '
+          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress --with "orchestra/testbench:${TESTBENCH}" --with "guzzlehttp/guzzle:${GUZZLE}"
+          composer show | grep -E '^(laravel/framework|orchestra/testbench|flashpi/flashpi-php|guzzlehttp/(guzzle|psr7|promises)|phpunit/phpunit) '
       # The lowest symfony/polyfill-uuid installs paragonie/random_compat, whose random_bytes()
       # has no return type, which the tests call: PHPStan checks the package and the scripts here.
       - name: Analyse the package (PHPStan, level max)

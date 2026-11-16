@@ -65,8 +65,9 @@ while implementing**: those wait for the owner's confirmation.
   READMEs give this floor (Laravel 12.71 or 13.40 and later) and what to do on an older release
   (`composer update laravel/framework`, or `composer require -W`). The lowest versions pass the
   tests on PHP 8.2 and 8.5: Laravel 12.71.0 with Testbench 10.0.0, and Laravel 13.40.0 with
-  Testbench 11.0.0, both with PHPUnit 11.5.50 and Guzzle 7.15.2 (13.40.0 with Guzzle 8.3.0 too).
-  The development requirements are Testbench `^10.0 || ^11.0` and PHPUnit `^11.5.50 || ^12.5.8 ||
+  Testbench 11.0.0, both with PHPUnit 11.5.50 and Guzzle 7.15.2 (13.40.0 with Guzzle 8.3.0 too,
+  which a job of CI keeps checking, since `--prefer-lowest` alone always picks Guzzle 7). The
+  development requirements are Testbench `^10.0 || ^11.0` and PHPUnit `^11.5.50 || ^12.5.8 ||
   ^13.0`, the versions Testbench accepts. Guzzle, PSR-7 and Symfony Console, which the code also
   uses (the Guzzle client under the SDK, a command's `#[AsCommand]`), come with the SDK and with
   Laravel's components, which require them: `composer.json` does not repeat their constraints, so
@@ -400,8 +401,13 @@ while implementing**: those wait for the owner's confirmation.
     jobs), each with PHPStan and the tests. PHPStan runs in every job because Laravel's types
     differ between majors (the one ignored report in `phpstan.neon.dist` is one of them).
   - `lowest`: the oldest versions `composer.json` allows with each Laravel major, on its lowest
-    PHP and on PHP 8.5 (Laravel 12 on 8.2 and 8.5, Laravel 13 on 8.3 and 8.5), PHPStan over
-    `config`, `scripts` and `src` only (random_compat, above), and the tests.
+    PHP and on PHP 8.5 (Laravel 12 on 8.2 and 8.5, Laravel 13 on 8.3 and 8.5), with Guzzle 7
+    (`--with "guzzlehttp/guzzle:^7.15.2"`), and a fifth job with Laravel 13 and Guzzle 8 on PHP
+    8.5 (`--with "guzzlehttp/guzzle:^8.3"`): Laravel 13 and the SDK allow either major, the
+    package uses Guzzle's classes itself (`Client`, `Utils::chooseHandler()`, `TransferStats`,
+    `Promise\Create`), and left alone `--prefer-lowest` always picks Guzzle 7, which is why
+    flashpi-php's lowest job pins each major too. PHPStan runs over `config`, `scripts` and `src`
+    only (random_compat, above), then the tests.
   - `package` (Laravel 12 on PHP 8.2, Laravel 13 on 8.5): `scripts/package_check.php` on `git
     archive HEAD`, then the archive installed from a path repository in a new app
     (`composer create-project laravel/laravel`), `php artisan flashpi:install`,
