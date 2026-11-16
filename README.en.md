@@ -252,6 +252,12 @@ Listen to the event of the type you need. Laravel discovers the listeners of `ap
 the type of `handle()`'s parameter; you can also register them with
 `Event::listen(InvoiceAuthorized::class, MarkOrderInvoiced::class)`.
 
+Laravel matches a listener by the event's own class (and its interfaces), not by a parent class:
+a listener of `DocumentWebhookEvent`, `CertificateWebhookEvent`, `AccountWebhookEvent` or
+`WebhookEvent` never runs. For several types, pass their classes to
+`Event::listen([InvoiceAuthorized::class, InvoiceRejected::class], ...)` (or a union type in
+`handle()`), or listen to `WebhookReceived` and check `$event->type`.
+
 ```php
 use App\Models\Order;
 use Flashpi\Laravel\Events\InvoiceAuthorized;

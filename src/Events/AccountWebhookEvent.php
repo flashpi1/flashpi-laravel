@@ -11,6 +11,9 @@ use Flashpi\Types\ApiTypes;
  * the AccountEmailSending of the event's environment, as the API returned it when the event
  * happened.
  *
+ * A base class for typing, never dispatched itself: Laravel does not run its listeners (see
+ * WebhookEvent).
+ *
  * @phpstan-import-type AccountEmailSending from ApiTypes
  *
  * @extends WebhookEvent<AccountEmailSending>

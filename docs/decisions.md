@@ -281,13 +281,20 @@ while implementing**: those wait for the owner's confirmation.
 - **The event classes.** `Flashpi\Laravel\Events`: the abstract `WebhookEvent<TData>` (a covariant
   template, so `InvoiceAuthorized` is a `WebhookEvent<array<mixed>>`), the abstract
   `DocumentWebhookEvent` (`data` is the SDK's `Document`), `CertificateWebhookEvent`
-  (`Certificate`) and `AccountWebhookEvent` (`AccountEmailSending`), one final class per type
-  with its `TYPE` constant, and the final `WebhookReceived`, whose `data` is
-  `array<string, mixed>`. `WebhookEvents::CLASSES` maps each type to its class
-  (`classFor()`). The class name is the type in StudlyCase, split at `.` and `_`
-  (`account.email_paused` is `AccountEmailPaused`). A test reads the SDK's `DocumentEventType`,
-  `CertificateEventType` and `AccountEventType` (and `EventThinType`) from `ApiTypes`' PHPDoc and
-  fails when a type has no class, or a class no type, or a class sits under the wrong base.
+  (`Certificate`) and `AccountWebhookEvent` (`AccountEmailSending`), one final class per type with
+  its `TYPE` constant, and the final `WebhookReceived`, whose `data` is `array<string, mixed>`.
+  `WebhookEvents::CLASSES` maps each type to its class (`classFor()`). The class name is the type
+  in StudlyCase, split at `.` and `_` (`account.email_paused` is `AccountEmailPaused`). A test
+  reads the SDK's `DocumentEventType`, `CertificateEventType` and `AccountEventType` (and
+  `EventThinType`) from `ApiTypes`' PHPDoc and fails when a type has no class, or a class no type,
+  or a class sits under the wrong base. The abstract bases exist for typing only, and their
+  docblocks and the READMEs say that they cannot be listened to: Laravel's dispatcher matches a
+  listener by the dispatched class and the interfaces it implements, never by a parent class, so a
+  listener of `DocumentWebhookEvent` (registered with `Event::listen()`, as a closure's parameter
+  type or as a discovered `handle()`) would silently never run (**chosen while implementing**).
+  Category marker interfaces (for example `Events\Contracts\DocumentEvent`), which the dispatcher
+  would match, as Laravel's own `MigrationEvent` contract is matched, are left to the owner: adding
+  them later breaks nothing, removing them after 0.1.0 would.
 - **What an event holds.** Read-only `id`, `type`, `environment` (`test` or `live`), `createdAt`
   (the API's ISO 8601 string, as the SDK keeps dates), `data` (null in a thin payload), `payload`
   (the whole body, with any field this version does not know) and `webhookId` (the header; the

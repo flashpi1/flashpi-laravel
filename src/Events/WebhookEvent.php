@@ -22,6 +22,13 @@ use Illuminate\Container\Container;
  * });
  * ```
  *
+ * Laravel's dispatcher matches a listener by the dispatched class and the interfaces it
+ * implements, never by a parent class. Listen to a concrete class (InvoiceAuthorized, ...) or to
+ * WebhookReceived. A listener of WebhookEvent, DocumentWebhookEvent, CertificateWebhookEvent or
+ * AccountWebhookEvent never runs, whether it is registered with Event::listen(), as a closure's
+ * parameter type or as a discovered handle(). These base classes type the code that listeners
+ * share.
+ *
  * A full payload carries the event's `data`: the document, certificate or email sending it is
  * about, as the API described it when the event happened. A thin payload (an endpoint whose
  * payloadMode is `thin`) carries only the id, type, environment and date: `data` is null and
