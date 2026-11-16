@@ -32,10 +32,12 @@ use Illuminate\Http\Response;
  *    FlashpiException (a 500, reported like any error) so that Flashpi retries.
  * 2. It answers the endpoint's verification challenge (`webhook_endpoint.verification`) with
  *    `{"challenge": "..."}`, and dispatches nothing for it.
- * 3. It remembers the delivery's webhook-id in the cache (24 hours, Cache::add(), which is atomic
- *    in the stores that share it between servers: database, redis, memcached, dynamodb): a
- *    delivery seen before is answered 204 without dispatching it again, or 409 while its first
- *    delivery is still being handled, so that Flashpi tries again later.
+ * 3. It remembers the delivery's webhook-id in the cache (Cache::add(), which is atomic in the
+ *    stores that share it between servers: database, redis, memcached, dynamodb): `processing`
+ *    for a lease of 5 minutes while it is handled, then `processed` for 24 hours. A delivery
+ *    seen before is answered 204 without dispatching it again, or 409 while its first delivery
+ *    is still being handled, so that Flashpi tries again later. A request that died without an
+ *    exception (a fatal error, a killed worker) blocks the retries until its lease ends.
  * 4. It dispatches WebhookReceived, then the event of the type (InvoiceAuthorized, ...) when this
  *    version has one, remembers the delivery as processed and answers 204. When a listener
  *    throws, the webhook-id is forgotten and the error goes to Laravel's exception handler (a
@@ -54,6 +56,13 @@ final class WebhookController
 
     /** The cached value once its events were dispatched. */
     public const PROCESSED = 'processed';
+
+    /**
+     * Seconds a delivery stays `processing`: longer than any web request that answers in time,
+     * short enough that a request that died without an exception (a fatal error, a killed worker)
+     * blocks Flashpi's retries for minutes, not for the whole TTL.
+     */
+    public const PROCESSING_LEASE = 300;
 
     private const VERIFICATION = 'webhook_endpoint.verification';
 
@@ -101,7 +110,7 @@ final class WebhookController
         $store = $cache->store(WebhookSettings::store($config));
         $ttl = WebhookSettings::ttl($config);
         $key = self::cacheKey($webhookId);
-        if (!$store->add($key, self::PROCESSING, $ttl)) {
+        if (!$store->add($key, self::PROCESSING, min(self::PROCESSING_LEASE, $ttl))) {
             return new Response('', $store->get($key) === self::PROCESSED ? 204 : 409);
         }
         try {
@@ -118,7 +127,7 @@ final class WebhookController
             $store->put($key, self::PROCESSED, $ttl);
         } catch (\Throwable $error) {
             // The events went out: a 204 keeps Flashpi from sending them again, and the
-            // delivery stays `processing` until it expires.
+            // delivery stays `processing` until its lease expires.
             $exceptions->report($error);
         }
 

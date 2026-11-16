@@ -215,25 +215,36 @@ while implementing**: those wait for the owner's confirmation.
   --verify` sends a new one), never remembered in the cache and with no event dispatched, not even
   `WebhookReceived` (the owner's decision dispatches events for every other type). One without a
   string `challenge` is a 400.
-- **Deduplication.** The cache key is `flashpi:webhook:` and the `webhook-id` header (Flashpi
-  sends the event's id, a UUID), or the SHA-256 of an id longer than 128 characters or with
-  characters other than letters, digits, `.`, `_`, `:` and `-`, which some stores refuse; a known
-  key lets an app forget a delivery to have it handled again. The key goes through two states:
-  `Cache::add($key, 'processing', $ttl)` before dispatching (atomic in the stores servers share:
-  database, redis, memcached, dynamodb; the file store's add() is not), then `put($key,
-  'processed', $ttl)` once the events went out. A repeat of a processed delivery is answered 204
-  without dispatching; a repeat of one still being handled is answered 409, so that Flashpi tries
-  it again later instead of taking a 204 for a delivery whose first attempt may still fail
-  (Flashpi waits 10 seconds for an answer and retries 5 seconds later, so a slow synchronous
+- **Deduplication.** The cache key is `flashpi:webhook:` and the `webhook-id` header (Flashpi sends
+  the event's id, a UUID), or the SHA-256 of an id longer than 128 characters or with characters
+  other than letters, digits, `.`, `_`, `:` and `-`, which some stores refuse; a known key lets an
+  app forget a delivery to have it handled again. The key goes through two states with different
+  lifetimes: `Cache::add($key, 'processing', min(300, $ttl))` before dispatching (atomic in the
+  stores servers share: database, redis, memcached, dynamodb; the file store's add() is not), then
+  `put($key, 'processed', $ttl)` once the events went out. A repeat of a processed delivery is
+  answered 204 without dispatching; a repeat of one still being handled is answered 409, so that
+  Flashpi tries it again later instead of taking a 204 for a delivery whose first attempt may still
+  fail (Flashpi waits 10 seconds for an answer and retries 5 seconds later, so a slow synchronous
   listener meets its own retry). When a listener throws, the key is forgotten and the error is
   thrown again, so Laravel's exception handler reports it and renders it (a 500, or an
-  `HttpException`'s status) and Flashpi's retry dispatches the delivery again. When the cache
-  fails before the events go out, the error is a 500 and nothing is dispatched; when it fails
-  writing `processed`, the events went out, so the error is reported and the answer is still 204.
-  A PHP fatal error (memory, time limit) while dispatching leaves `processing`: Flashpi's retries
-  get 409 until the TTL ends, then the delivery is handled again, within Flashpi's 72-hour retry
-  window. The TTL is `webhook.deduplication.ttl`, a whole number of seconds of 1 or more (0 would
-  make `Cache::add()` refuse every delivery), 86400 when unset; anything else throws a
+  `HttpException`'s status) and Flashpi's retry dispatches the delivery again. When the cache fails
+  before the events go out, the error is a 500 and nothing is dispatched; when it fails writing
+  `processed`, the events went out, so the error is reported and the answer is still 204. A request
+  that dies without an exception while dispatching (a PHP fatal error such as the memory or time
+  limit, a worker killed by FPM's `request_terminate_timeout`, an OOM kill, a deploy) never forgets
+  its key, so `processing` has a lease of its own, 300 seconds
+  (`WebhookController::PROCESSING_LEASE`, **chosen while implementing**): with the whole TTL,
+  Flashpi's retries (5 s, 5 min, 30 min, 2 h, 5 h, then every 10 h until 72 h after the first
+  attempt) would get 409 for about 27.5 hours, and a TTL above about 62 hours would lose the
+  delivery for good. 300 seconds is longer than Flashpi's 10-second wait, PHP's default 30-second
+  `max_execution_time` and the usual proxy timeouts (60 seconds), so a request that still answers
+  in time keeps its lease; after one that died, the retry 5 seconds later gets 409 and the one
+  about 5 minutes later handles the delivery. A handler still running after 300 seconds would be
+  dispatched a second time, which at-least-once delivery and idempotent listeners already allow. A
+  TTL below 300 seconds shortens the lease too. No shutdown function forgets the key: it would
+  cover fatal errors only, not killed workers, and does not run per request under Octane. The TTL
+  is `webhook.deduplication.ttl`, a whole number of seconds of 1 or more (0 would make
+  `Cache::add()` refuse every delivery), 86400 when unset; anything else throws a
   `FlashpiException`. Flashpi's replay of a delivery (`webhookEndpoints->deliveries->replay()`)
   keeps its `webhook-id`, so within the TTL it is answered 204 and dispatches nothing: replays
   cannot be told from retries.

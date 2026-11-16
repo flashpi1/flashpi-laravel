@@ -77,9 +77,11 @@ return [
         /*
          * A delivery can arrive more than once: its webhook-id is remembered in the cache, for
          * `ttl` seconds (24 hours), so its events are dispatched once. A delivery whose listener
-         * throws is forgotten, so that Flashpi's retry dispatches it again. A replayed delivery
-         * (webhookEndpoints->deliveries->replay()) keeps its webhook-id: within the ttl it is
-         * ignored too.
+         * throws is forgotten, so that Flashpi's retry dispatches it again; while it is handled it
+         * is held for 5 minutes only, so a request that died without an exception (a fatal error,
+         * a killed worker) blocks Flashpi's retries for minutes, not for the ttl. A replayed
+         * delivery (webhookEndpoints->deliveries->replay()) keeps its webhook-id: within the ttl
+         * it is ignored too.
          * `store` is a cache store of config/cache.php (unset: the default one); with several
          * servers, use one they share (database, redis, memcached, dynamodb), whose add() is
          * atomic.

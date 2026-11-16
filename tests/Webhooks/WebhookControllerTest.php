@@ -16,6 +16,7 @@ use Illuminate\Cache\CacheManager;
 use Illuminate\Cache\Repository as CacheRepository;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Cache\Repository as Cache;
+use Illuminate\Contracts\Cache\Store;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Exceptions;
@@ -320,12 +321,43 @@ final class WebhookControllerTest extends WebhookTestCase
         self::assertCount(0, $events);
     }
 
+    public function testHandlesADeliveryAgainOnceTheLeaseOfARequestThatDiedEnds(): void
+    {
+        Exceptions::fake();
+        // A request that dies without an exception (a fatal error, a killed worker) never
+        // forgets its key: a store whose forget() does nothing leaves it as such a request does.
+        $this->useStore(new class extends ArrayStore {
+            public function forget($key): bool
+            {
+                return false;
+            }
+        });
+        $calls = 0;
+        $this->dispatcher()->listen(InvoiceAuthorized::class, static function () use (&$calls): void {
+            if (++$calls === 1) {
+                throw new \RuntimeException('Killed');
+            }
+        });
+        $event = Webhook::event('invoice.authorized');
+
+        $this->deliver($event)->assertStatus(500);
+        // Flashpi's first retries, 5 seconds later.
+        $this->travel(5)->seconds();
+        $this->deliver($event)->assertStatus(409);
+        // Its next one, 5 minutes later, is past the lease.
+        $this->travel(296)->seconds();
+        $this->deliver($event)->assertNoContent();
+        // Processed now: remembered for the whole TTL.
+        $this->travel(86399)->seconds();
+        $this->deliver($event)->assertNoContent();
+
+        self::assertSame(2, $calls);
+    }
+
     public function testAnswers204WhenTheCacheFailsAfterTheEventsWentOut(): void
     {
         Exceptions::fake();
-        $manager = $this->app?->make('cache');
-        self::assertInstanceOf(CacheManager::class, $manager);
-        $manager->extend('failing', fn(): CacheRepository => new CacheRepository(new class extends ArrayStore {
+        $this->useStore(new class extends ArrayStore {
             public function put($key, $value, $seconds): bool
             {
                 if ($value === WebhookController::PROCESSED) {
@@ -334,17 +366,15 @@ final class WebhookControllerTest extends WebhookTestCase
 
                 return parent::put($key, $value, $seconds);
             }
-        }));
-        $this->config()->set('cache.stores.failing', ['driver' => 'failing']);
-        $this->config()->set('flashpi.webhook.deduplication.store', 'failing');
+        });
         $events = $this->record([InvoiceAuthorized::class]);
 
         $this->deliver(Webhook::event('invoice.authorized'))->assertNoContent();
 
         self::assertCount(1, $events);
         Exceptions::assertReported(static fn(\RuntimeException $error): bool => $error->getMessage() === 'The cache is down');
-        // Still being handled, as far as the cache knows: a retry waits until it expires.
-        self::assertSame(WebhookController::PROCESSING, $this->cache('failing')->get(WebhookController::cacheKey(Webhook::ID)));
+        // Still being handled, as far as the cache knows: a retry waits until its lease ends.
+        self::assertSame(WebhookController::PROCESSING, $this->cache('custom')->get(WebhookController::cacheKey(Webhook::ID)));
     }
 
     public function testRemembersADeliveryForTheConfiguredTime(): void
@@ -461,6 +491,18 @@ final class WebhookControllerTest extends WebhookTestCase
     private function cache(?string $store = null): Cache
     {
         return $this->app?->make(CacheFactory::class)->store($store) ?? throw new \LogicException('The app is not running');
+    }
+
+    /**
+     * Makes a store of the test's own the one that remembers the deliveries.
+     */
+    private function useStore(Store $store): void
+    {
+        $manager = $this->app?->make('cache');
+        self::assertInstanceOf(CacheManager::class, $manager);
+        $manager->extend('custom', fn(): CacheRepository => new CacheRepository($store));
+        $this->config()->set('cache.stores.custom', ['driver' => 'custom']);
+        $this->config()->set('flashpi.webhook.deduplication.store', 'custom');
     }
 
     private function dispatcher(): Dispatcher
