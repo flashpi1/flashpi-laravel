@@ -4,7 +4,8 @@ Decisions about flashpi/flashpi-laravel, the Laravel package, newest first. It i
 SDK, [flashpi/flashpi-php](https://github.com/flashpi1/flashpi-php), whose
 [decisions](https://github.com/flashpi1/flashpi-php/blob/main/docs/decisions.md) apply here unless
 an entry says otherwise. Every entry is either the Flashpi product owner's or marked **chosen
-while implementing**: those wait for the owner's confirmation.
+while implementing**. The owner confirmed every choice of the 2026-11-16 entries on that day,
+except where "The owner's answers" changes one.
 
 ## 2026-11-16: the Laravel package
 
@@ -54,6 +55,37 @@ while implementing**: those wait for the owner's confirmation.
   Laravel 13) and at least 95 % of lines covered, release-please from 0.1.0 with the flashpi-bot
   GitHub App, grouped Dependabot, third-party actions pinned to commit SHAs, the live test on the
   release PR, and a check of the archive Composer installs.
+
+### The owner's answers
+
+On 2026-11-16, before the first pull request, the owner answered the questions the choices below
+left open:
+
+- **The language follows the locale of each request.** Without `FLASHPI_LANGUAGE`, every request
+  gets the `Accept-Language` of `app.locale` when it is sent, not the locale the client was built
+  with, so queue workers, Octane and apps with several languages get the locale of that moment. The
+  locale's language must be `es` (`es`, `es_EC`, `es-EC`, `es_EC.UTF-8`): `et` and `est`, Estonian,
+  no longer count as Spanish.
+- **Replays are documented, not changed.** A replay keeps its `webhook-id`, so within 24 hours of
+  the first delivery the route answers 204 and dispatches nothing. For 0.1.0 the READMEs give the
+  line that forgets the delivery before a replay; there is no command option for it, and the API
+  does not mark replays.
+- **`flashpi:webhook --force`.** It skips the check that the URL's host is public, for a public
+  host the list gets wrong. The URL must still be https, and Flashpi's API refuses a URL that is not
+  public HTTPS on its own.
+- **Every other choice stays as built.** That covers the Laravel floor (`^12.71 || ^13.40`),
+  `FLASHPI_LANGUAGE` limited to `es` or `en`, and no global facade alias. It covers the README's
+  warning about the `Authorization` header seen by the HTTP client's listeners, and `flashpi:check`
+  reading `GET /v1/events?limit=1` (any key may; the API has no "whoami" endpoint). It covers how
+  `flashpi:webhook` shows a secret and fails on other settings, and the route's answers (400, 409
+  with a 5-minute lease, 204, 500). It covers the verification challenge without events, the order
+  `WebhookReceived` then the typed event, and the event classes' names and shapes. Finally, it
+  covers the configuration keys, the README's `Order` examples, Dependabot without Laravel or
+  Testbench majors, the CI matrix with every job required on `main`, the live test's single
+  invoice, and no version file.
+- **After 0.1.0, not now.** `flashpi:webhook --update` and a secret rotation, marker interfaces per
+  event category, a proxy or headers of one's own in the configuration, and a second client with
+  another key (multi-tenant apps).
 
 ### The core, chosen while implementing
 
@@ -176,8 +208,8 @@ while implementing**: those wait for the owner's confirmation.
   `--thin` is a flag, so a run without it asks nothing of the payload mode, and the events are
   compared as sets), the command prints the differences and fails without sending anything more,
   `--verify` included, so a deploy script sees that the settings it asked for are not in place
-  (**chosen while implementing**; whether it should update the endpoint through
-  `webhookEndpoints->update()` instead, behind an option, is the owner's). Otherwise it creates the
+  (**chosen while implementing**; an option that updates the endpoint through
+  `webhookEndpoints->update()` waits until after 0.1.0, the owner's answer). Otherwise it creates the
   endpoint for every event (`*`, or the `--event` types, which the API checks so a new type needs
   no new version) with full payloads (or `--thin`), reads its secret and prints
   `FLASHPI_WEBHOOK_SECRET=whsec_...` once, with the next steps: Flashpi's first challenge fails
@@ -317,8 +349,8 @@ while implementing**: those wait for the owner's confirmation.
   listener of `DocumentWebhookEvent` (registered with `Event::listen()`, as a closure's parameter
   type or as a discovered `handle()`) would silently never run (**chosen while implementing**).
   Category marker interfaces (for example `Events\Contracts\DocumentEvent`), which the dispatcher
-  would match, as Laravel's own `MigrationEvent` contract is matched, are left to the owner: adding
-  them later breaks nothing, removing them after 0.1.0 would.
+  would match, as Laravel's own `MigrationEvent` contract is matched, wait until after 0.1.0 (the
+  owner's answer): adding them later breaks nothing, removing them after 0.1.0 would.
 - **What an event holds.** Read-only `id`, `type`, `environment` (`test` or `live`), `createdAt`
   (the API's ISO 8601 string, as the SDK keeps dates), `data` (null in a thin payload), `payload`
   (the whole body, with any field this version does not know) and `webhookId` (the header; the
