@@ -276,14 +276,20 @@ while implementing**: those wait for the owner's confirmation.
   `CertificateEventType` and `AccountEventType` (and `EventThinType`) from `ApiTypes`' PHPDoc and
   fails when a type has no class, or a class no type, or a class sits under the wrong base.
 - **What an event holds.** Read-only `id`, `type`, `environment` (`test` or `live`), `createdAt`
-  (the API's ISO 8601 string, as the SDK keeps dates), `data` (null in a thin payload),
-  `payload` (the whole body, with any field this version does not know) and `webhookId` (the
-  header; the event's id by default). An event is built from a webhook body,
-  `new InvoiceAuthorized($payload)`, so an app's tests build them as the route does; a body that
-  is not an event of the class's type throws an `\InvalidArgumentException`. The classes hold
-  strings and arrays only, so they need neither `SerializesModels` nor any `__serialize()`: the
-  sync queue (which serializes its jobs too) and the database queue with a worker are tested.
-  They use no `Dispatchable` trait, which lives in `laravel/framework`'s foundation, a package the
+  (the API's ISO 8601 string, as the SDK keeps dates), `data` (null in a thin payload), `payload`
+  (the whole body, with any field this version does not know) and `webhookId` (the header; the
+  event's id by default). An event is built from a webhook body, `new InvoiceAuthorized($payload)`,
+  so an app's tests build them as the route does; a body that is not an event of the class's type
+  throws an `\InvalidArgumentException`. The classes hold strings and arrays only, so they need no
+  `SerializesModels`. They define `__serialize()` and `__unserialize()`, so a queued job carries
+  the payload once (`data` is part of it), the webhook-id and what `fetch()` read, and the
+  constructor rebuilds the rest, checking it again: PHP's `serialize()` writes an array out in full
+  each time, so without them a job carried the document twice (in `data` and in the payload),
+  JSON-escaped inside the queue's payload, which doubles the queue's storage and brings large
+  documents closer to the size limits of drivers such as SQS (256 KB). The queued format no longer
+  depends on the property layout either, so jobs queued before a package upgrade still load. The
+  sync queue (which serializes its jobs too) and the database queue with a worker are tested. They
+  use no `Dispatchable` trait, which lives in `laravel/framework`'s foundation, a package the
   package does not require: `Event::dispatch()` and `event()` dispatch them.
 - **Thin payloads.** `isThin()` is true when the body has no `data`. `fetch()` returns the whole
   event: the payload itself, without a request, when it carries `data`; otherwise

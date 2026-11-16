@@ -28,8 +28,10 @@ use Illuminate\Container\Container;
  * fetch() reads the whole event from the API, only when a listener calls it. fetch() works for
  * both, so a listener need not know the endpoint's mode.
  *
- * The event holds strings and arrays only, so a queued listener (ShouldQueue) gets it intact.
- * It is built from the webhook's body: `new InvoiceAuthorized($payload)` in a listener's test.
+ * The event holds strings and arrays only, so a queued listener (ShouldQueue) gets it intact:
+ * serialized, it keeps the payload once (with its `data`), the webhook-id and what fetch() read,
+ * and the constructor rebuilds the rest. It is built from the webhook's body:
+ * `new InvoiceAuthorized($payload)` in a listener's test.
  *
  * @template-covariant TData of array<mixed>
  *
@@ -123,6 +125,30 @@ abstract class WebhookEvent
     public function isThin(): bool
     {
         return $this->data === null;
+    }
+
+    /**
+     * What a queue keeps of the event: the payload once (`data` is part of it), the webhook-id
+     * and what fetch() read.
+     *
+     * @return array{payload: array<string, mixed>, webhookId: string, fetched: array<string, mixed>|null}
+     */
+    public function __serialize(): array
+    {
+        return ['payload' => $this->payload, 'webhookId' => $this->webhookId, 'fetched' => $this->fetched];
+    }
+
+    /**
+     * Rebuilds the event as the constructor builds it.
+     *
+     * @param array{payload: array<string, mixed>, webhookId: string, fetched: array<string, mixed>|null} $data
+     *
+     * @throws \InvalidArgumentException A payload that is not an event of the class's type.
+     */
+    public function __unserialize(array $data): void
+    {
+        $this->__construct($data['payload'], $data['webhookId']);
+        $this->fetched = $data['fetched'];
     }
 
     /**

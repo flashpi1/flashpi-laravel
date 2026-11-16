@@ -183,6 +183,30 @@ final class WebhookEventsTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function testWritesTheDataOnceWhenSerialized(): void
+    {
+        // A queued listener's job carries the event: `data` is part of the payload, kept once.
+        $serialized = serialize(new InvoiceAuthorized(Webhook::event('invoice.authorized'), 'delivery-1'));
+
+        self::assertSame(1, substr_count($serialized, '"accessKey"'));
+        $copy = unserialize($serialized);
+        self::assertInstanceOf(InvoiceAuthorized::class, $copy);
+        self::assertSame(Webhook::document(), $copy->data);
+        self::assertSame('delivery-1', $copy->webhookId);
+    }
+
+    public function testChecksAnEventAsItIsUnserialized(): void
+    {
+        $serialized = serialize(new InvoiceAuthorized(Webhook::event('invoice.authorized')));
+        // A queued job whose payload was changed into another type's.
+        $changed = str_replace('s:18:"invoice.authorized"', 's:18:"invoice.rejected__"', $serialized);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('is the invoice.authorized event, not invoice.rejected__');
+
+        unserialize($changed);
+    }
+
     public function testFetchesTheEventOfAThinPayloadOnce(): void
     {
         $full = Webhook::event('invoice.authorized');
