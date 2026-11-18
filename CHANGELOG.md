@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/flashpi1/flashpi-laravel/compare/v0.1.1...v0.1.2) (2026-11-18)
+
+
+### Bug fixes
+
+* accept flashpi/flashpi-php 0.3 ([adbc8ca](https://github.com/flashpi1/flashpi-laravel/commit/adbc8cad5474bd942b5da605040a7208e06e7d6a))
+
 ## [0.1.1](https://github.com/flashpi1/flashpi-laravel/compare/v0.1.0...v0.1.1) (2026-11-18)
 
 
