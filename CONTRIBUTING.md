@@ -16,10 +16,12 @@ composer install
 ```
 
 `composer.lock` is not committed: a library is tested against the newest and the oldest versions
-`composer.json` allows. `composer install` resolves Laravel 13 on PHP 8.3 and later, and Laravel
-12 on PHP 8.2; for Laravel 12 on a newer PHP, run
-`composer update --with "orchestra/testbench:^10.0"` (Testbench 10 is Laravel 12's, 11 is Laravel
-13's). Without PHP on your machine, run every command in the official images, for example
+`composer.json` allows. `composer install` resolves Laravel 13 and flashpi/flashpi-php 0.2 on PHP
+8.3 and later, and Laravel 12 and flashpi/flashpi-php 0.1 on PHP 8.2 (the SDK's 0.2 needs PHP 8.3);
+for Laravel 12 on a newer PHP, run `composer update --with "orchestra/testbench:^10.0"` (Testbench
+10 is Laravel 12's, 11 is Laravel 13's), and for the SDK's 0.1,
+`composer update --with "flashpi/flashpi-php:^0.1"`. Without PHP on your machine, run every command
+in the official images, for example
 `docker run --rm -v "$PWD":/app -w /app composer:2 composer install`, then
 `docker run --rm -v "$PWD":/app -w /app php:8.5-cli vendor/bin/phpunit`.
 
@@ -51,10 +53,12 @@ composer validate --strict && composer cs && composer analyse && composer test
   `composer update --prefer-lowest --prefer-stable --with "orchestra/testbench:^10.0"` installs
   Laravel 12.71.0, and `... --with "orchestra/testbench:^11.0"` Laravel 13.40.0, both with Guzzle
   7; add `--with "guzzlehttp/guzzle:^8.3"` to the second for Laravel 13 with Guzzle 8.3.0, which
-  `--prefer-lowest` never picks on its own. Run `composer update` to go back to the newest. With
-  the lowest versions, PHPStan checks `config`, `scripts` and `src` only: the lowest
-  `symfony/polyfill-uuid` installs `random_compat`, whose `random_bytes()` has no return type, and
-  the lowest Mockery (1.6.10) types `shouldReceive()` too loosely for the tests.
+  `--prefer-lowest` never picks on its own. Run `composer update` to go back to the newest. The
+  newest versions bring flashpi/flashpi-php 0.1 on PHP 8.2 and 0.2 on PHP 8.3 and later, and the
+  lowest its 0.1.0 on every PHP, so CI tests both with each Laravel major. With the lowest
+  versions, PHPStan checks `config`, `scripts` and `src` only: the lowest `symfony/polyfill-uuid`
+  installs `random_compat`, whose `random_bytes()` has no return type, and the lowest Mockery
+  (1.6.10) types `shouldReceive()` too loosely for the tests.
 - `composer package:check` checks what Composer would install from a tag: the archive of `HEAD`
   (so commit first), which `.gitattributes` keeps to `src/`, `config/`, `composer.json`, the
   license and the READMEs. CI then installs that archive in new Laravel 12 and 13 apps
