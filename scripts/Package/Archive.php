@@ -26,8 +26,11 @@ final class Archive
 
     public const OPTIONAL = ['CHANGELOG.md'];
 
-    /** What composer.json must require, besides Laravel's components. */
-    public const REQUIRE = ['php' => '^8.2', 'flashpi/flashpi-php' => '^0.1'];
+    /**
+     * What composer.json must require, besides Laravel's components. Both minor versions of the
+     * SDK: its 0.2 needs PHP 8.3, so Composer gives apps on PHP 8.2 its 0.1.
+     */
+    public const REQUIRE = ['php' => '^8.2', 'flashpi/flashpi-php' => '^0.1 || ^0.2'];
 
     /** The Laravel majors the package supports, as each illuminate/* requirement must name them. */
     public const LARAVEL = '/\A\^12\.\d+(?:\.\d+)? \|\| \^13\.\d+(?:\.\d+)?\z/';

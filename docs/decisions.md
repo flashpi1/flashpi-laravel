@@ -7,6 +7,29 @@ an entry says otherwise. Every entry is either the Flashpi product owner's or ma
 while implementing**. The owner confirmed every choice of the 2026-11-16 entries on that day,
 except where "The owner's answers" changes one.
 
+## 2026-11-17: flashpi/flashpi-php 0.2
+
+The SDK raised its minimum PHP version to 8.3 in its 0.2.0, released on 2026-11-18 (its
+[decisions](https://github.com/flashpi1/flashpi-php/blob/main/docs/decisions.md#2026-11-17-php-83)),
+and the owner decided that the package takes it without dropping PHP 8.2. It replaces
+"`flashpi/flashpi-php` `^0.1`" in the 2026-11-16 entry ("Requirements" and "The archive", under
+"The core, chosen while implementing").
+
+- **Both minor versions of the SDK.** `"flashpi/flashpi-php": "^0.1 || ^0.2"`, in place of
+  `^0.1`, with `"php": "^8.2"` kept: Composer gives an app on PHP 8.2 the SDK's 0.1, and an app on
+  PHP 8.3 or later its 0.2. With `^0.1` alone, an app that also required the SDK's 0.2 could not
+  install the package. The SDK's code did not change in 0.2.0, so the package's does not either.
+  It is committed as `fix:`, which release-please turns into 0.1.1, and `composer package:check`
+  requires the new constraint.
+- **CI keeps its jobs** (**chosen while implementing**). The PHP version picks the SDK's: the
+  newest versions bring 0.1 on PHP 8.2 and 0.2 on PHP 8.3 and later, and the lowest bring 0.1.0 on
+  every PHP. So both are tested with each Laravel major and each Guzzle major it allows, as the
+  owner asked, without new jobs (the SDK's 0.2 with the newest versions only), and the required
+  checks do not change. The `laravel` job's log lists the SDK's version, and
+  `scripts/installed_check.php` prints it.
+- **The READMEs** (**chosen while implementing**) say which version of the SDK Composer picks for
+  each PHP version.
+
 ## 2026-11-16: the Laravel package
 
 ### The owner's decisions
@@ -91,23 +114,23 @@ left open:
 
 - **Requirements.** `illuminate/console`, `illuminate/contracts`, `illuminate/http` and
   `illuminate/support`, the components the core uses, at `^12.71 || ^13.40`, and
-  `flashpi/flashpi-php` `^0.1`. As with the SDK's Guzzle floor, the lowest versions are the oldest
-  Composer installs with its audit on: every `laravel/framework` before 12.71.0, and 13.x before
-  13.40.0, has a security advisory (the latest, PKSA-yxbx-3c9s-cjt9, reported 2026-11-13), so
-  `--prefer-lowest` cannot install anything older, and anything older would go untested. The
-  READMEs give this floor (Laravel 12.71 or 13.40 and later) and what to do on an older release
-  (`composer update laravel/framework -W`, or `composer require -W`): the newer Laravel releases
-  need newer versions of locked dependencies (such as `league/commonmark` ^2.8.1 for 12.71 and
-  `monolog/monolog` ^3.10 for 13.40), which an update without `-W` cannot move, and `-W` is the flag
-  Composer's own error suggests. The lowest versions pass the tests on PHP 8.2 and 8.5: Laravel
-  12.71.0 with Testbench 10.0.0, and Laravel 13.40.0 with Testbench 11.0.0, both with PHPUnit
-  11.5.50 and Guzzle 7.15.2 (13.40.0 with Guzzle 8.3.0 too, which a job of CI keeps checking, since
-  `--prefer-lowest` alone always picks Guzzle 7). The development requirements are Testbench
-  `^10.0 || ^11.0` and PHPUnit `^11.5.50 || ^12.5.8 || ^13.0`, the versions Testbench accepts.
-  Guzzle, PSR-7 and Symfony Console, which the code also uses (the Guzzle client under the SDK, a
-  command's `#[AsCommand]`), come with the SDK and with Laravel's components, which require them:
-  `composer.json` does not repeat their constraints, so they cannot drift from the SDK's and
-  Laravel's.
+  `flashpi/flashpi-php` `^0.1 || ^0.2` (`^0.1` before 2026-11-17, above). As with the SDK's Guzzle
+  floor, the lowest versions are the oldest Composer installs with its audit on: every
+  `laravel/framework` before 12.71.0, and 13.x before 13.40.0, has a security advisory (the latest,
+  PKSA-yxbx-3c9s-cjt9, reported 2026-11-13), so `--prefer-lowest` cannot install anything older, and
+  anything older would go untested. The READMEs give this floor (Laravel 12.71 or 13.40 and later)
+  and what to do on an older release (`composer update laravel/framework -W`, or
+  `composer require -W`): the newer Laravel releases need newer versions of locked dependencies
+  (such as `league/commonmark` ^2.8.1 for 12.71 and `monolog/monolog` ^3.10 for 13.40), which an
+  update without `-W` cannot move, and `-W` is the flag Composer's own error suggests. The lowest
+  versions pass the tests on PHP 8.2 and 8.5: Laravel 12.71.0 with Testbench 10.0.0, and Laravel
+  13.40.0 with Testbench 11.0.0, both with PHPUnit 11.5.50 and Guzzle 7.15.2 (13.40.0 with Guzzle
+  8.3.0 too, which a job of CI keeps checking, since `--prefer-lowest` alone always picks Guzzle 7).
+  The development requirements are Testbench `^10.0 || ^11.0` and PHPUnit
+  `^11.5.50 || ^12.5.8 || ^13.0`, the versions Testbench accepts. Guzzle, PSR-7 and Symfony Console,
+  which the code also uses (the Guzzle client under the SDK, a command's `#[AsCommand]`), come with
+  the SDK and with Laravel's components, which require them: `composer.json` does not repeat their
+  constraints, so they cannot drift from the SDK's and Laravel's.
 - **Laravel's HTTP client, per request.** The SDK gets a Guzzle client whose handler sends each
   request through the handler stack of a new pending request of the HTTP client factory the
   container holds at that moment (`createPendingRequest()->buildHandlerStack()`), not one
@@ -236,9 +259,9 @@ left open:
   line for the assertions.
 - **The archive.** `composer package:check` checks `git archive HEAD` as flashpi-php's does: only
   `src/`, `config/`, `composer.json`, the license, the READMEs and maybe the changelog; a
-  `composer.json` that requires PHP, `flashpi/flashpi-php` `^0.1` and `illuminate/*` components
-  for Laravel 12 and 13 only, autoloads `Flashpi\Laravel\` from `src/` and registers the service
-  provider for package discovery.
+  `composer.json` that requires PHP, `flashpi/flashpi-php` `^0.1 || ^0.2` (`^0.1` before 2026-11-17)
+  and `illuminate/*` components for Laravel 12 and 13 only, autoloads `Flashpi\Laravel\` from `src/`
+  and registers the service provider for package discovery.
 
 ### The webhooks, chosen while implementing
 
@@ -497,8 +520,9 @@ left open:
   the Composer production and development dependencies in one group each (`chore:`). Majors of
   `illuminate/*` and `orchestra/testbench` are ignored: another Laravel major is the owner's
   decision, and Testbench's majors follow Laravel's. `flashpi/flashpi-php` is not ignored, but
-  `composer package:check` requires `^0.1`, so a new SDK minor is adopted on purpose (its new
-  resources need the facade's tags, its new webhook types their event classes).
+  `composer package:check` requires `^0.1 || ^0.2` (`^0.1` before 2026-11-17), so a new SDK minor is
+  adopted on purpose (its new resources need the facade's tags, its new webhook types their event
+  classes).
 - **The archive.** `.gitattributes` keeps `.github`, `docs`, `scripts`, `tests`, the tool
   configuration, the release-please files, `CONTRIBUTING.md` and `SECURITY.md` out of the
   archive; `composer package:check` and the CI's `package` job prove that the archive holds
