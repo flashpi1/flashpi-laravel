@@ -7,6 +7,22 @@ an entry says otherwise. Every entry is either the Flashpi product owner's or ma
 while implementing**. The owner confirmed every choice of the 2026-11-16 entries on that day,
 except where "The owner's answers" changes one.
 
+## 2026-11-18: flashpi/flashpi-php 0.3
+
+The SDK's 0.3.0, released on 2026-11-18, follows the API: the last payment of a document may leave
+out `amount`, Flashpi gives it the rest of the total, and `zero_payment` is a new field error code
+(flashpi-php's `DocumentPayment` and `WithholdingPayment` types, and its `FieldErrorCode`). The
+owner decided to take it. It replaces `^0.1 || ^0.2` in the 2026-11-17 entry.
+
+- **Every minor version of the SDK since 0.1.** `"flashpi/flashpi-php": "^0.1 || ^0.2 || ^0.3"`,
+  with `"php": "^8.2"` kept: Composer gives an app on PHP 8.2 the SDK's 0.1 and an app on PHP 8.3
+  or later its 0.3. The 0.3 adds no resource and no webhook type, only the optional amount in the
+  request types, so the package's code does not change. It is committed as `fix:`, as the move to
+  0.2 was, which release-please turns into 0.1.2, and `composer package:check` requires the new
+  constraint.
+- **The READMEs** say the SDK's 0.3 lets the last payment leave out `amount`. With the SDK's 0.1
+  (PHP 8.2), PHPStan still requires it, though the API accepts the payment without it.
+
 ## 2026-11-17: flashpi/flashpi-php 0.2
 
 The SDK raised its minimum PHP version to 8.3 in its 0.2.0, released on 2026-11-18 (its
@@ -114,7 +130,8 @@ left open:
 
 - **Requirements.** `illuminate/console`, `illuminate/contracts`, `illuminate/http` and
   `illuminate/support`, the components the core uses, at `^12.71 || ^13.40`, and
-  `flashpi/flashpi-php` `^0.1 || ^0.2` (`^0.1` before 2026-11-17, above). As with the SDK's Guzzle
+  `flashpi/flashpi-php` `^0.1 || ^0.2 || ^0.3` (`^0.1` before 2026-11-17 and `^0.1 || ^0.2` before
+  2026-11-18, above). As with the SDK's Guzzle
   floor, the lowest versions are the oldest Composer installs with its audit on: every
   `laravel/framework` before 12.71.0, and 13.x before 13.40.0, has a security advisory (the latest,
   PKSA-yxbx-3c9s-cjt9, reported 2026-11-13), so `--prefer-lowest` cannot install anything older, and
@@ -259,7 +276,8 @@ left open:
   line for the assertions.
 - **The archive.** `composer package:check` checks `git archive HEAD` as flashpi-php's does: only
   `src/`, `config/`, `composer.json`, the license, the READMEs and maybe the changelog; a
-  `composer.json` that requires PHP, `flashpi/flashpi-php` `^0.1 || ^0.2` (`^0.1` before 2026-11-17)
+  `composer.json` that requires PHP, `flashpi/flashpi-php` `^0.1 || ^0.2 || ^0.3` (`^0.1` before
+  2026-11-17, `^0.1 || ^0.2` before 2026-11-18)
   and `illuminate/*` components for Laravel 12 and 13 only, autoloads `Flashpi\Laravel\` from `src/`
   and registers the service provider for package discovery.
 
@@ -520,7 +538,8 @@ left open:
   the Composer production and development dependencies in one group each (`chore:`). Majors of
   `illuminate/*` and `orchestra/testbench` are ignored: another Laravel major is the owner's
   decision, and Testbench's majors follow Laravel's. `flashpi/flashpi-php` is not ignored, but
-  `composer package:check` requires `^0.1 || ^0.2` (`^0.1` before 2026-11-17), so a new SDK minor is
+  `composer package:check` requires `^0.1 || ^0.2 || ^0.3` (`^0.1` before 2026-11-17,
+  `^0.1 || ^0.2` before 2026-11-18), so a new SDK minor is
   adopted on purpose (its new resources need the facade's tags, its new webhook types their event
   classes).
 - **The archive.** `.gitattributes` keeps `.github`, `docs`, `scripts`, `tests`, the tool
