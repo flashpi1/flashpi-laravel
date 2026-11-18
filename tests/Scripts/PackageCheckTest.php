@@ -66,7 +66,7 @@ final class PackageCheckTest extends TestCase
         self::assertSame([
             'composer.json must name flashpi/flashpi-laravel',
             'composer.json must carry no version: Packagist takes it from the tag',
-            'composer.json must require flashpi/flashpi-php ^0.1 || ^0.2',
+            'composer.json must require flashpi/flashpi-php ^0.1 || ^0.2 || ^0.3',
             'composer.json must not require guzzlehttp/guzzle: the package needs PHP, flashpi/flashpi-php and Laravel\'s components only',
             'composer.json must require illuminate/routing for Laravel 12 and 13 (^12.x || ^13.x)',
             'composer.json must autoload Flashpi\\Laravel\\ from src/ only',
@@ -157,7 +157,7 @@ final class PackageCheckTest extends TestCase
             'name' => 'flashpi/flashpi-laravel',
             'require' => [
                 'php' => '^8.2',
-                'flashpi/flashpi-php' => '^0.1 || ^0.2',
+                'flashpi/flashpi-php' => '^0.1 || ^0.2 || ^0.3',
                 'illuminate/support' => '^12.0 || ^13.0',
                 'illuminate/http' => '^12.40.1 || ^13.2',
             ],

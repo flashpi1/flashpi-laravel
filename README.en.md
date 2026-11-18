@@ -23,8 +23,9 @@ for Ecuador's SRI.
 - PHP 8.2 or later (Laravel 13 needs PHP 8.3).
 - It installs [flashpi/flashpi-php](https://github.com/flashpi1/flashpi-php), the official PHP
   SDK, which makes the API calls. Everything its README explains (the types, the retries, the
-  lists) applies here. Composer picks its version for your PHP version: 0.2 on PHP 8.3 or later,
-  and 0.1 on PHP 8.2.
+  lists) applies here. Composer picks its version for your PHP version: 0.3 on PHP 8.3 or later,
+  and 0.1 on PHP 8.2. Since its 0.3, the last payment of a document may leave out `amount`, and
+  Flashpi gives it the rest of the total ([rules](https://flashpi.com.ec/docs/en/documents/#totals)).
 
 ## Install
 
