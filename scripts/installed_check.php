@@ -19,6 +19,7 @@ declare(strict_types=1);
 use Flashpi\Laravel\Events\InvoiceAuthorized;
 use Flashpi\Laravel\Facades\Flashpi;
 use Flashpi\Laravel\FlashpiServiceProvider;
+use Flashpi\Version;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Application;
@@ -143,4 +144,4 @@ foreach ($problems as $problem) {
 if ($problems !== []) {
     exit(1);
 }
-fwrite(\STDOUT, "flashpi/flashpi-laravel works from {$package} in Laravel {$app->version()} on PHP " . \PHP_VERSION . "\n");
+fwrite(\STDOUT, "flashpi/flashpi-laravel works from {$package} with flashpi/flashpi-php " . Version::VERSION . " in Laravel {$app->version()} on PHP " . \PHP_VERSION . "\n");

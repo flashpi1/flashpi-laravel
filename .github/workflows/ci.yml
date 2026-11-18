@@ -17,7 +17,9 @@ concurrency:
 
 # Third-party actions are pinned to full commit SHAs (the comment is the release). No lock file is
 # committed: each job resolves the versions composer.json allows for its PHP and Laravel major,
-# which Orchestra Testbench picks (10 for Laravel 12, 11 for Laravel 13).
+# which Orchestra Testbench picks (10 for Laravel 12, 11 for Laravel 13). The PHP version picks
+# flashpi/flashpi-php's: its 0.2 needs PHP 8.3, so the newest versions bring 0.1 on PHP 8.2 and
+# 0.2 on PHP 8.3 and later, and the lowest bring 0.1.0 on every PHP.
 jobs:
   verify:
     name: Lint, analyse and test (PHP 8.5, Laravel 13)
@@ -101,7 +103,7 @@ jobs:
           GUZZLE: ${{ matrix.guzzle == '7' && '^7.15.2' || '^8.3' }}
         run: |
           composer update --no-interaction --no-progress --with "orchestra/testbench:${TESTBENCH}" --with "guzzlehttp/guzzle:${GUZZLE}"
-          composer show | grep -E '^(laravel/framework|guzzlehttp/guzzle) '
+          composer show | grep -E '^(laravel/framework|flashpi/flashpi-php|guzzlehttp/guzzle) '
       - name: Analyse (PHPStan, level max)
         run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
       - run: vendor/bin/phpunit
